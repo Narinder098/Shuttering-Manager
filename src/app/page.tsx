@@ -1,8 +1,8 @@
-export default function HomePage() {
+export default function Page() {
   return (
-    <main>
-      <h1>Welcome to the Shuttering Manager</h1>
-      <p>This is the home page of the Shuttering Manager application.</p>
+    <main className="p-6 text-center">
+      <h1 className="text-3xl font-bold">Welcome to Shuttering Manager</h1>
+      <p className="mt-2 text-gray-600">Track rentals, inventory, and payments easily.</p>
     </main>
   );
 }
