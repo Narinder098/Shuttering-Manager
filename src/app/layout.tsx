@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import Link from "next/link";
+import { Toaster } from "react-hot-toast";
 
 export const metadata = {
   title: "Shuttering Manager",
@@ -11,15 +11,20 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col bg-gray-50 text-gray-800 font-sans">
-        {/* NAVBAR */}
+      <body className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
+        
+        {/* NAVBAR - AUTO SWITCHES */}
         <Navbar />
 
-        {/* MAIN CONTENT */}
-        <main className="flex-1 w-full mx-auto px-4 sm:px-6 md:px-8 py-8">{children}</main>
+        {/* MAIN */}
+        <main className="flex-1 px-4 sm:px-6 md:px-8 py-8">{children}</main>
 
-        {/* FOOTER */}
+        {/* TOASTER */}
+        <Toaster position="top-right" />
+
+        {/* FOOTER (HIDDEN ON ADMIN PAGES) */}
         <Footer />
+
       </body>
     </html>
   );

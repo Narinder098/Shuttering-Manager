@@ -6,13 +6,13 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center text-center bg-gradient-to-b from-blue-50 to-gray-50 text-gray-900">
       {/* === HERO SECTION === */}
-      <section className="w-full bg-gradient-to-br from-blue-300 via-indigo-300 to-purple-300 py-20 sm:py-24 text-white shadow-lg">
+      <section className="w-full bg-gradient-to-br from-emerald-300 via-teal-300 to-emerald-400 py-20 sm:py-24 text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-3xl sm:text-5xl font-extrabold bg-gradient-to-r from-white via-blue-500 to-purple-500 bg-clip-text text-transparent leading-tight"
+            className="text-3xl sm:text-5xl font-extrabold bg-gradient-to-r from-purple-400 via-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight"
           >
             Welcome to Shuttering Manager
           </motion.h1>
@@ -21,7 +21,7 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="text-blue-100 mt-4 text-sm sm:text-lg leading-relaxed"
+            className="text-blue-50 mt-4 text-sm sm:text-lg leading-relaxed"
           >
             Simplify your shuttering business — manage rentals, inventory, and payments
             with AI-powered insights and automation.

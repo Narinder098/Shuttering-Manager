@@ -1,232 +1,395 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { materials } from "@/lib/mock";
-import { daysBetween, todayISO } from "@/lib/calc";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import toast, { Toaster } from "react-hot-toast";
 import CountUp from "react-countup";
+import { X, Calculator, Calendar, Package, Plus, Trash2, Share2, ArrowRight, Tag } from "lucide-react";
 
+// Utility – days between 2 dates
+function daysBetween(out: string, _in: string) {
+  const d1 = new Date(out);
+  const d2 = new Date(_in);
+  const diff = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)));
+  return isNaN(diff) ? 1 : diff;
+}
+
+function todayISO() {
+  return new Date().toISOString().split("T")[0];
+}
+
+/* ---------------- TYPES ---------------- */
+type Variant = {
+  _id: string;
+  label: string;
+  pricePerDay: number;
+  availableQuantity?: number;
+};
+
+type Material = {
+  _id: string;
+  name: string;
+  category?: string;
+  variants?: Variant[];
+};
+
+type Row = {
+  id: string;
+  material: string;
+  variant?: string | null;
+  qty: number;
+  days: number;
+  pricePerDay: number;
+  subtotal: number;
+  from: string;
+  to: string;
+};
+
+/* ---------------- COMPONENT ---------------- */
 export default function CalculatorPage() {
-  // TOP BAR STATES
-  const [selectMaterial, setSelectMaterial] = useState(materials[0].id);
-  const [selectQty, setSelectQty] = useState(1);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // User Input
+  const [materialId, setMaterialId] = useState("");
+  const [variantId, setVariantId] = useState("");
+  const [qty, setQty] = useState(1);
   const [dateOut, setDateOut] = useState(todayISO());
   const [dateIn, setDateIn] = useState(todayISO());
 
-  // ADDED MATERIALS
-  type Row = {
-    id: string;
-    materialId: string;
-    qty: number;
-    dateOut: string;
-    dateIn: string;
-  };
-
-  type ComputedRow = Row & {
-    material: (typeof materials)[number];
-    days: number;
-    subtotal: number;
-  };
-
+  // Items List
   const [rows, setRows] = useState<Row[]>([]);
 
-  const addRow = () => {
-    if (!dateOut || !dateIn) return;
+  // Load backend materials
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/materials");
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error);
+        setMaterials(json.data || []);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load materials");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
-    setRows((r) => [
-      ...r,
-      {
-        id: Math.random().toString(),
-        materialId: selectMaterial,
-        qty: selectQty,
-        dateOut,
-        dateIn,
-      },
-    ]);
+  // Current selected objects
+  const selectedMaterial = materials.find((m) => m._id === materialId);
+  const selectedVariant = selectedMaterial?.variants?.find((v) => v._id === variantId);
+
+  const price = selectedVariant?.pricePerDay ?? 0;
+  const days = daysBetween(dateOut, dateIn);
+  const previewSubtotal = qty * price * days;
+
+  const addItem = () => {
+    if (!materialId || !variantId) {
+      toast.error("Please select a material and variant");
+      return;
+    }
+
+    // Check if item with same material, variant AND dates already exists
+    const existingIndex = rows.findIndex(
+      (r) => 
+        r.material === selectedMaterial?.name && 
+        r.variant === selectedVariant?.label && 
+        r.from === dateOut && 
+        r.to === dateIn
+    );
+
+    if (existingIndex >= 0) {
+      // Update existing row
+      const updatedRows = [...rows];
+      const existingRow = updatedRows[existingIndex];
+      const newQty = existingRow.qty + qty;
+      
+      updatedRows[existingIndex] = {
+        ...existingRow,
+        qty: newQty,
+        subtotal: newQty * price * days // Recalculate subtotal
+      };
+      
+      setRows(updatedRows);
+      toast.success("Updated existing item quantity!");
+    } else {
+      // Add new row
+      setRows((r) => [
+        ...r,
+        {
+          id: Math.random().toString(),
+          material: selectedMaterial?.name || "",
+          variant: selectedVariant?.label ?? null,
+          qty,
+          days,
+          pricePerDay: price,
+          subtotal: previewSubtotal,
+          from: dateOut,
+          to: dateIn,
+        },
+      ]);
+      toast.success("Item added to estimate!");
+    }
   };
 
-  const removeRow = (id: string) =>
-    setRows((r) => r.filter((row) => row.id !== id));
-
-  // COMPUTE TOTALS
-  const computed = useMemo(() => {
-    return rows.map((row) => {
-      const material = materials.find((m) => m.id === row.materialId)!;
-      const days = daysBetween(row.dateOut, row.dateIn);
-      const subtotal = row.qty * material.dailyRate * days;
-
-      return { ...row, material, days, subtotal } as ComputedRow;
-    });
-  }, [rows]);
-
-  const total = computed.reduce((s, r) => s + r.subtotal, 0);
+  const total = useMemo(() => rows.reduce((s, r) => s + r.subtotal, 0), [rows]);
 
   return (
-    <main className="min-h-screen bg-linear-to-b from-blue-50 to-white px-4 py-14 sm:px-8">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 relative overflow-hidden">
+      <Toaster position="top-right" />
+      
+      {/* Decorative Background */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-50/80 to-transparent -z-10 pointer-events-none" />
 
-        {/* PAGE TITLE */}
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-blue-700 text-center">
-          Price Calculator
-        </h1>
-        <p className="text-gray-600 text-center mt-2 text-sm mb-10">
-          Add materials and calculate totals instantly.
-        </p>
-
-        {/* 🔵 TOP BAR */}
-        <div className="
-           
-          bg-white/90 backdrop-blur-xl 
-          border border-blue-100 shadow-xl
-          rounded-2xl p-5 mb-12
-        ">
-          <h2 className="font-semibold text-blue-700 mb-3 text-lg">
-            Add Material
-          </h2>
-
-          {/* BAR GRID */}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-
-            {/* MATERIAL */}
-            <select
-              value={selectMaterial}
-              onChange={(e) => setSelectMaterial(e.target.value)}
-              className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-sm shadow-sm"
-            >
-              {materials.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} {m.nameHi ? `(${m.nameHi})` : ""}
-                </option>
-              ))}
-            </select>
-
-            {/* QTY */}
-            <input
-              type="number"
-              min="1"
-              value={selectQty}
-              onChange={(e) =>
-                setSelectQty(Math.max(1, Number(e.target.value)))
-              }
-              className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-sm shadow-sm"
-            />
-
-            {/* DATE OUT */}
-            <input
-              type="date"
-              value={dateOut}
-              onChange={(e) => setDateOut(e.target.value)}
-              className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-sm shadow-sm"
-            />
-
-            {/* DATE IN */}
-            <input
-              type="date"
-              value={dateIn}
-              onChange={(e) => setDateIn(e.target.value)}
-              className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-sm shadow-sm"
-            />
-
-            {/* ADD BUTTON */}
-            <button
-              onClick={addRow}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl px-4 py-3 shadow-md text-sm transition w-full"
-            >
-              + Add
-            </button>
+      <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="text-center max-w-2xl mx-auto">
+          <div className="inline-flex items-center justify-center p-3 bg-white rounded-2xl shadow-sm mb-4 border border-emerald-100">
+            <Calculator className="text-emerald-600 w-8 h-8" />
           </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            Rental <span className="text-emerald-600">Estimator</span>
+          </h1>
+          <p className="text-slate-500 mt-3 text-lg">
+            Build a quote instantly. Add materials, calculate dates, and share the estimate on WhatsApp.
+          </p>
         </div>
 
-        {/* ITEMS ADDED */}
-        <div className="space-y-6">
-          {computed.map((r) => (
-            <div
-              key={r.id}
-              className="bg-white border border-blue-100 rounded-2xl shadow-md p-6 hover:shadow-xl transition"
-            >
-              {/* HEADER */}
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-bold text-blue-800">
-                  {r.material.name}{" "}
-                  {r.material.nameHi && (
-                    <span className="text-gray-500 text-sm">
-                      ({r.material.nameHi})
-                    </span>
-                  )}
-                </h3>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* LEFT: INPUT FORM (Sticky on Desktop) */}
+          <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-6">
+            <div className="bg-white rounded-3xl shadow-xl shadow-emerald-900/5 border border-slate-100 p-6 sm:p-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-emerald-500" /> Add Items
+              </h2>
 
+              <div className="space-y-5">
+                {/* Material Select */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1.5 ml-1">Material</label>
+                  <div className="relative">
+                    <Package className="absolute left-3.5 top-3.5 text-slate-400 w-5 h-5" />
+                    <select
+                      value={materialId}
+                      onChange={(e) => {
+                        setMaterialId(e.target.value);
+                        setVariantId(""); 
+                      }}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">Select Material</option>
+                      {materials.map((m) => (
+                        <option key={m._id} value={m._id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Variant Select */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1.5 ml-1">Size / Variant</label>
+                  <div className="relative">
+                    <Tag className="absolute left-3.5 top-3.5 text-slate-400 w-5 h-5" />
+                    <select
+                      value={variantId}
+                      onChange={(e) => setVariantId(e.target.value)}
+                      disabled={!selectedMaterial}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed appearance-none cursor-pointer"
+                    >
+                      <option value="">Select Variant</option>
+                      {selectedMaterial?.variants?.map((v) => (
+                        <option key={v._id} value={v._id}>
+                          {v.label} — ₹{v.pricePerDay}/day
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <label className="block text-sm font-bold text-slate-600 mb-1.5 ml-1">Quantity</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={qty}
+                    onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+
+                {/* Dates Row */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-600 mb-1.5 ml-1">From</label>
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-3 text-slate-400 w-4 h-4" />
+                        <input
+                        type="date"
+                        value={dateOut}
+                        onChange={(e) => setDateOut(e.target.value)}
+                        className="w-full pl-9 pr-2 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-600 mb-1.5 ml-1">To</label>
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-3 text-slate-400 w-4 h-4" />
+                        <input
+                        type="date"
+                        value={dateIn}
+                        onChange={(e) => setDateIn(e.target.value)}
+                        className="w-full pl-9 pr-2 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Preview Box */}
+                <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100 flex justify-between items-center">
+                    <div className="text-sm text-emerald-800">
+                        <span className="block text-xs text-emerald-600 font-semibold uppercase">Estimated Cost</span>
+                        {qty} x ₹{price} x {days} days
+                    </div>
+                    <div className="text-2xl font-bold text-emerald-700">
+                        ₹{previewSubtotal.toLocaleString()}
+                    </div>
+                </div>
+
+                {/* Add Button */}
                 <button
-                  onClick={() => removeRow(r.id)}
-                  className="px-3 py-1 rounded-md bg-red-50 text-red-700 border border-red-200 text-xs hover:bg-red-100"
+                  onClick={addItem}
+                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  Remove
+                  Add to Estimate <ArrowRight size={18} />
                 </button>
               </div>
-
-              {/* INFO */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-
-                {/* QTY */}
-                <div>
-                  <p className="text-xs text-gray-500">Quantity</p>
-                  <p className="text-lg font-semibold">{r.qty}</p>
-                </div>
-
-                {/* DAYS */}
-                <div>
-                  <p className="text-xs text-gray-500">Days</p>
-                  <p className="text-lg font-semibold text-blue-700">{r.days}</p>
-                </div>
-
-                {/* RATE */}
-                <div>
-                  <p className="text-xs text-gray-500">Rate / Day</p>
-                  <p className="text-lg font-semibold">₹{r.material.dailyRate}</p>
-                </div>
-
-                {/* SUBTOTAL */}
-                <div>
-                  <p className="text-xs text-gray-500">Subtotal</p>
-                  <p className="text-2xl font-bold text-blue-700">₹{r.subtotal}</p>
-                </div>
-              </div>
             </div>
-          ))}
-        </div>
-
-        {/* GRAND TOTAL + WHATSAPP SHARE */}
-        <div className="mt-12 bg-white border border-blue-100 rounded-2xl shadow-md p-6">
-
-          <div className="text-center sm:text-right">
-            <p className="text-gray-500 text-sm">Grand Total</p>
-            <h2 className="text-4xl font-extrabold text-blue-700 mb-4">
-              <CountUp end={total} duration={0.6} separator="," prefix="₹" />
-            </h2>
           </div>
 
-          {/* WHATSAPP BUTTON */}
-          <button
-            onClick={() => {
-              const message = computed
-                .map(
-                  (item) =>
-                    `• ${item.material.name} (${item.material.nameHi || ""})\n  Qty: ${item.qty
-                    }\n  Days: ${item.days}\n  Rate: ₹${item.material.dailyRate}/day\n  Subtotal: ₹${item.subtotal
-                    }\n`
-                )
-                .join("\n");
+          {/* RIGHT: ITEMS LIST (Scrollable) */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Empty State */}
+            {rows.length === 0 && (
+              <div className="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-12 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <Calculator className="text-slate-300 w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-700">Your estimate is empty</h3>
+                <p className="text-slate-400 mt-1 max-w-xs">Add materials from the left to start building your cost estimate.</p>
+              </div>
+            )}
 
-              const finalMessage = `🧾 *Shuttering Rent Bill*\n\n${message}\n----------------------------------\nGrand Total: *₹${total}*\n----------------------------------\n\nThank you!`;
+            {/* Items List */}
+            <AnimatePresence>
+              {rows.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                        <h2 className="text-lg font-bold text-slate-800">Estimate Details</h2>
+                        <span className="text-sm font-medium text-slate-500">{rows.length} items added</span>
+                    </div>
 
-              const encoded = encodeURIComponent(finalMessage);
-              window.open(`https://wa.me/?text=${encoded}`, "_blank");
-            }}
-            className="w-full sm:w-auto mt-4 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md transition text-sm mx-auto"
-          >
-            <span>📲 Share on WhatsApp</span>
-          </button>
+                    {rows.map((r) => (
+                        <motion.div
+                        key={r.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow relative group"
+                        >
+                        <div className="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-lg">{r.material}</h3>
+                                <div className="text-sm text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md inline-block mt-1">
+                                    {r.variant || "Standard"}
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xl font-extrabold text-slate-900">₹{r.subtotal.toLocaleString()}</div>
+                                <div className="text-xs text-slate-400 font-medium">Subtotal</div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-slate-500 bg-slate-50 p-3 rounded-xl">
+                            <div className="flex-1">
+                                <span className="block text-xs font-bold uppercase text-slate-400">Rate</span>
+                                <span className="font-medium text-slate-700">₹{r.pricePerDay}/day</span>
+                            </div>
+                            <div className="w-px h-8 bg-slate-200"></div>
+                            <div className="flex-1">
+                                <span className="block text-xs font-bold uppercase text-slate-400">Qty</span>
+                                <span className="font-medium text-slate-700">{r.qty} units</span>
+                            </div>
+                            <div className="w-px h-8 bg-slate-200"></div>
+                            <div className="flex-1">
+                                <span className="block text-xs font-bold uppercase text-slate-400">Duration</span>
+                                <span className="font-medium text-slate-700">{r.days} days</span>
+                            </div>
+                        </div>
+
+                        <div className="mt-3 flex justify-between items-center text-xs text-slate-400 px-1">
+                            <span>{r.from} <span className="mx-1">→</span> {r.to}</span>
+                        </div>
+
+                        <button
+                            onClick={() => setRows(rows.filter((i) => i.id !== r.id))}
+                            className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                            title="Remove Item"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                        </motion.div>
+                    ))}
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* Grand Total & Actions */}
+            {rows.length > 0 && (
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-2xl shadow-slate-900/20"
+                >
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
+                        <div className="text-center sm:text-left">
+                            <p className="text-slate-400 font-medium mb-1">Total Estimated Cost</p>
+                            <div className="text-4xl sm:text-5xl font-extrabold tracking-tight text-emerald-400">
+                                <CountUp end={total} duration={1} separator="," prefix="₹" />
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                const message = rows
+                                .map(
+                                    (i) =>
+                                    `• ${i.material} (${i.variant || "Std"})\n   Qty: ${i.qty} | Days: ${i.days} | Rate: ₹${i.pricePerDay}\n   Sub: ₹${i.subtotal}`
+                                )
+                                .join("\n\n");
+
+                                const finalMessage = `🧾 *Shuttering Estimate*\n\n${message}\n\n──────────────\n*Grand Total: ₹${total.toLocaleString()}*\n──────────────`;
+
+                                window.open(`https://wa.me/?text=${encodeURIComponent(finalMessage)}`);
+                            }}
+                            className="w-full sm:w-auto px-8 py-4 bg-green-500 hover:bg-green-600 text-white rounded-2xl font-bold shadow-lg shadow-green-900/20 transition-all flex items-center justify-center gap-3 active:scale-95"
+                        >
+                            <Share2 size={20} /> Share on WhatsApp
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+
+          </div>
         </div>
-
-
       </div>
     </main>
   );

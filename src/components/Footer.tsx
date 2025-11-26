@@ -1,4 +1,13 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 export default function Footer() {
+  const pathname = usePathname();
+
+  // HIDE FOOTER ON ADMIN PAGES
+  if (pathname.startsWith("/admin")) return null;
+
   return (
     <footer className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 text-white mt-20">
       <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
