@@ -4,10 +4,11 @@ import Material from "@/models/Materials";
 
 export async function POST(
   req: Request,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   await connectDB();
-  const { id } = await context.params; // FIX: await needed in App Router
+  // 1. Await the params
+  const { id } = await params;
 
   try {
     const body = await req.json();
@@ -21,6 +22,7 @@ export async function POST(
       );
     }
 
+    // Mongoose subdocument push
     mat.variants.push({
       label,
       pricePerDay,
@@ -28,6 +30,7 @@ export async function POST(
       availableQuantity: totalQuantity,
     });
 
+    // Recalculate totals
     mat.totalQuantity = mat.variants.reduce(
       (a: number, v: { totalQuantity: number }) => a + v.totalQuantity,
       0
@@ -41,6 +44,6 @@ export async function POST(
 
     return NextResponse.json({ ok: true, data: mat });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message });
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

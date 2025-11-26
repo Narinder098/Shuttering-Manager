@@ -4,10 +4,11 @@ import Material from "@/models/Materials";
 
 export async function PUT(
   req: Request,
-  context: { params: { id: string; variantId: string } }
+  { params }: { params: Promise<{ id: string; variantId: string }> }
 ) {
   await connectDB();
-  const { id, variantId } = await context.params;
+  // 1. Await params
+  const { id, variantId } = await params;
 
   try {
     const mat = await Material.findById(id);
@@ -19,6 +20,7 @@ export async function PUT(
 
     const body = await req.json();
 
+    // Use Mongoose .id() method to find subdocument
     const variant = mat.variants.id(variantId);
     if (!variant)
       return NextResponse.json(
@@ -26,19 +28,20 @@ export async function PUT(
         { status: 404 }
       );
 
+    // Update fields
     variant.label = body.label;
     variant.pricePerDay = body.pricePerDay;
     variant.totalQuantity = body.totalQuantity;
+    // Note: This logic resets available qty to max. Adjust if you want to preserve rentals.
     variant.availableQuantity = body.totalQuantity;
 
+    // Recalculate totals
     mat.totalQuantity = mat.variants.reduce(
-      (a: number, v: { totalQuantity: number; availableQuantity: number }) =>
-        a + v.totalQuantity,
+      (a: number, v: { totalQuantity: number }) => a + v.totalQuantity,
       0
     );
     mat.availableQuantity = mat.variants.reduce(
-      (a: number, v: { totalQuantity: number; availableQuantity: number }) =>
-        a + v.availableQuantity,
+      (a: number, v: { availableQuantity: number }) => a + v.availableQuantity,
       0
     );
 
@@ -46,16 +49,17 @@ export async function PUT(
 
     return NextResponse.json({ ok: true, data: mat });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message });
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
 
 export async function DELETE(
   req: Request,
-  context: { params: { id: string; variantId: string } }
+  { params }: { params: Promise<{ id: string; variantId: string }> }
 ) {
   await connectDB();
-  const { id, variantId } = await context.params;
+  // 1. Await params
+  const { id, variantId } = await params;
 
   try {
     const mat = await Material.findById(id);
@@ -72,16 +76,16 @@ export async function DELETE(
         { status: 404 }
       );
 
+    // Remove subdocument
     variant.deleteOne();
 
+    // Recalculate totals
     mat.totalQuantity = mat.variants.reduce(
-      (a: number, v: { totalQuantity: number; availableQuantity: number }) =>
-        a + v.totalQuantity,
+      (a: number, v: { totalQuantity: number }) => a + v.totalQuantity,
       0
     );
     mat.availableQuantity = mat.variants.reduce(
-      (a: number, v: { totalQuantity: number; availableQuantity: number }) =>
-        a + v.availableQuantity,
+      (a: number, v: { availableQuantity: number }) => a + v.availableQuantity,
       0
     );
 
@@ -89,6 +93,6 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err.message });
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }

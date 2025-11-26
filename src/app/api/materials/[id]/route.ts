@@ -1,11 +1,15 @@
-// src/app/api/materials/[id]/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Material from "@/models/Materials";
 
-export async function PUT(req: Request, context: { params: { id: string } }) {
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   await connectDB();
-  const { id } = context.params;
+  // 1. Await the params
+  const { id } = await params;
+
   try {
     const body = await req.json();
     const update: any = {};
@@ -22,14 +26,18 @@ export async function PUT(req: Request, context: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(req: Request, context: { params: { id: string } }) {
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   await connectDB();
-  const { id } = context.params;
+  // 1. Await the params
+  const { id } = await params;
+
   try {
     const mat = await Material.findById(id);
     if (!mat) return NextResponse.json({ ok: false, error: "Material not found" }, { status: 404 });
 
-    // Optional: check rentals referencing material before deletion (not implemented)
     await Material.findByIdAndDelete(id);
     return NextResponse.json({ ok: true });
   } catch (err: any) {
