@@ -1,8 +1,6 @@
-// src/app/admin/reports/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import {
   BarChart,
@@ -16,7 +14,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { Search, DownloadCloud, Printer, MessageSquare, AlertTriangle, Calendar, FileText } from "lucide-react";
+import { Search, DownloadCloud, Printer, MessageSquare, AlertTriangle, Calendar, FileText, CheckCircle, AlertCircle, X } from "lucide-react";
 
 /* -------------------- Types -------------------- */
 type RentalItem = {
@@ -89,8 +87,23 @@ export default function AdminReportsPage() {
   const [filterPhoneOrName, setFilterPhoneOrName] = useState("");
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
 
+  // ------------------ TOAST STATE ------------------
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  };
+
+  const dismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+  // -------------------------------------------------
+
   useEffect(() => {
     loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadAll() {
@@ -116,9 +129,9 @@ export default function AdminReportsPage() {
       }));
       setRentals(r);
       setMaterials(mJson.data || []);
-      toast.success("Data loaded");
+      showToast("Data loaded successfully", "success");
     } catch (err: any) {
-      toast.error(err.message || "Load error");
+      showToast(err.message || "Load error", "error");
     } finally {
       setLoading(false);
     }
@@ -236,9 +249,9 @@ export default function AdminReportsPage() {
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Notify failed");
-      toast.success("Notification queued");
+      showToast("Notification queued", "success");
     } catch (err: any) {
-      toast.error(err.message || "Notify error");
+      showToast(err.message || "Notify error", "error");
     }
   }
 
@@ -273,8 +286,28 @@ export default function AdminReportsPage() {
 
   /* -------------------- Render -------------------- */
   return (
-    <div className="space-y-6 pb-10">
-      <Toaster position="top-right" />
+    <div className="space-y-6 pb-10 relative">
+      {/* --- TOAST CONTAINER --- */}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${
+              toast.type === "success" 
+                ? "bg-emerald-600 border-emerald-500" 
+                : "bg-red-600 border-red-500"
+            }`}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <p className="text-sm font-medium">{toast.message}</p>
+            <button onClick={() => dismissToast(toast.id)} className="ml-2 opacity-80 hover:opacity-100 transition-opacity">
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
       
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -315,12 +348,14 @@ export default function AdminReportsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Date Range Card */}
-        <div className="p-5 rounded-2xl bg-white border border-emerald-100 shadow-sm">
-          <div className="text-xs font-bold text-emerald-600 uppercase mb-1">Selected Range</div>
+        <div className="p-5 rounded-2xl bg-white border border-emerald-100 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-emerald-600 uppercase mb-1 flex items-center gap-2">
+            <Calendar size={14}/> Selected Range
+          </div>
           <div className="text-sm font-medium text-slate-800 mb-3">
             {format(new Date(rangeStart), "dd MMM")} — {format(new Date(rangeEnd), "dd MMM")}
           </div>
-          <div className="pt-3 border-t border-emerald-50">
+          <div className="pt-3 border-t border-emerald-50/50">
              <div className="flex justify-between text-sm mb-1">
                 <span className="text-slate-500">Rentals</span>
                 <span className="font-bold text-slate-800">{rangeSummary.totalRentals}</span>
@@ -333,19 +368,21 @@ export default function AdminReportsPage() {
         </div>
 
         {/* Today's Activity */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all">
           <div className="text-xs font-bold text-slate-400 uppercase mb-1">Today's Activity</div>
           <div className="text-2xl font-extrabold text-slate-900">
             {rentals.filter(r => new Date(r.rentedAt) >= startOfDay(new Date())).length} <span className="text-sm font-normal text-slate-500">Rentals</span>
           </div>
           <div className="mt-2 text-sm text-slate-600">
-             collected: <span className="font-bold text-emerald-600">{toCurrency(rentals.reduce((s, r) => s + (new Date(r.rentedAt) >= startOfDay(new Date()) ? r.paidAmount : 0), 0))}</span>
+             Collected: <span className="font-bold text-emerald-600">{toCurrency(rentals.reduce((s, r) => s + (new Date(r.rentedAt) >= startOfDay(new Date()) ? r.paidAmount : 0), 0))}</span>
           </div>
         </div>
 
         {/* Overdue Card */}
-        <div className="p-5 rounded-2xl bg-white border border-red-100 shadow-sm">
-          <div className="text-xs font-bold text-red-500 uppercase mb-1">Overdue Alerts</div>
+        <div className="p-5 rounded-2xl bg-white border border-red-100 shadow-sm hover:shadow-md transition-all">
+          <div className="text-xs font-bold text-red-500 uppercase mb-1 flex items-center gap-2">
+            <AlertTriangle size={14}/> Overdue Alerts
+          </div>
           <div className="text-2xl font-extrabold text-slate-900">
             {overdueRentals.length} <span className="text-sm font-normal text-slate-500">Late</span>
           </div>
@@ -355,10 +392,9 @@ export default function AdminReportsPage() {
         </div>
 
         {/* Inventory Alerts */}
-        <div className="p-5 rounded-2xl bg-white border border-amber-100 shadow-sm">
+        <div className="p-5 rounded-2xl bg-white border border-amber-100 shadow-sm hover:shadow-md transition-all">
           <div className="flex justify-between items-start">
              <div className="text-xs font-bold text-amber-600 uppercase mb-1">Inventory Health</div>
-             <AlertTriangle size={16} className="text-amber-500" />
           </div>
           
           <div className="space-y-1 mt-1">
@@ -431,7 +467,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Date Range Picker (Full Width) */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+      <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <Calendar size={18} className="text-emerald-600"/> 
@@ -463,7 +499,7 @@ export default function AdminReportsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold text-left">
+                <thead className="bg-gradient-to-br from-emerald-700 to-teal-600 text-white text-xs uppercase font-semibold text-left">
                   <tr>
                     <th className="py-3 px-6">Date</th>
                     <th className="py-3 px-6">Customer</th>
@@ -472,7 +508,7 @@ export default function AdminReportsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {payments.slice(0, 10).map((p, i) => (
-                    <tr key={i} className="hover:bg-slate-50">
+                    <tr key={i} className="hover:bg-emerald-50/30 transition-colors">
                       <td className="py-3 px-6 text-slate-600">{format(new Date(p.date), "dd MMM")}</td>
                       <td className="py-3 px-6 font-medium text-slate-800">
                         {p.customer}
@@ -500,14 +536,14 @@ export default function AdminReportsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold text-left"><tr>
+                <thead className="bg-gradient-to-br from-red-700 to-orange-600 text-white text-xs uppercase font-semibold text-left"><tr>
                     <th className="py-3 px-6">Customer</th>
                     <th className="py-3 px-6 text-right">Due Amount</th>
                     <th className="py-3 px-6 text-center">Action</th>
                   </tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {pendingDues.slice(0, 10).map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50">
+                    <tr key={p.id} className="hover:bg-red-50/30 transition-colors">
                       <td className="py-3 px-6 font-medium text-slate-800">
                         {p.name}
                         <div className="text-[10px] text-slate-400 font-normal">{p.phone} • Last: {p.lastRented ? format(new Date(p.lastRented), "dd MMM") : "-"}</div>
@@ -559,10 +595,4 @@ export default function AdminReportsPage() {
 
     </div>
   );
-
-  /* -------------------- helper open rental detail -------------------- */
-  function openRentalDetail(id: string) {
-    const url = `/admin/rentals?q=${encodeURIComponent(id)}`;
-    window.open(url, "_blank");
-  }
 }

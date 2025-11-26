@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
-import { User, Lock, Shield, Smartphone, Globe, Laptop, Save, Mail, KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
+import { User, Lock, Shield, Laptop, Save, Mail, KeyRound, CheckCircle, AlertCircle, X, Globe, Smartphone } from "lucide-react";
 
 export default function AccountSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -15,7 +14,25 @@ export default function AccountSettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [updating, setUpdating] = useState(false);
 
+  // Session State
+  const [sessionInfo, setSessionInfo] = useState<{ browser: string; os: string; type: "desktop" | "mobile" } | null>(null);
+
+  // ------------------ TOAST STATE ------------------
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  };
+
+  const dismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+  // -------------------------------------------------
+
   useEffect(() => {
+    // 1. Load Profile
     async function load() {
       try {
         const res = await fetch("/api/admin/me");
@@ -25,18 +42,39 @@ export default function AccountSettingsPage() {
           setName(data.admin.name);
         }
       } catch {
-        toast.error("Failed to load profile");
+        showToast("Failed to load profile", "error");
       } finally {
         setLoading(false);
       }
     }
     load();
+
+    // 2. Detect Real Session
+    if (typeof window !== "undefined") {
+      const ua = window.navigator.userAgent;
+      let browser = "Unknown Browser";
+      if (ua.indexOf("Chrome") > -1) browser = "Chrome";
+      else if (ua.indexOf("Safari") > -1) browser = "Safari";
+      else if (ua.indexOf("Firefox") > -1) browser = "Firefox";
+      else if (ua.indexOf("Edge") > -1) browser = "Edge";
+
+      let os = "Unknown OS";
+      let type: "desktop" | "mobile" = "desktop";
+      
+      if (ua.indexOf("Win") > -1) os = "Windows";
+      else if (ua.indexOf("Mac") > -1) os = "MacOS";
+      else if (ua.indexOf("Linux") > -1) os = "Linux";
+      else if (ua.indexOf("Android") > -1) { os = "Android"; type = "mobile"; }
+      else if (ua.indexOf("iPhone") > -1 || ua.indexOf("iPad") > -1) { os = "iOS"; type = "mobile"; }
+
+      setSessionInfo({ browser, os, type });
+    }
   }, []);
 
   async function handleUpdate(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword && newPassword !== confirmPassword) {
-      return toast.error("New passwords do not match");
+      return showToast("New passwords do not match", "error");
     }
 
     setUpdating(true);
@@ -54,7 +92,7 @@ export default function AccountSettingsPage() {
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
 
-      toast.success("Profile updated successfully");
+      showToast("Profile updated successfully", "success");
       // Clear password fields
       setCurrentPassword("");
       setNewPassword("");
@@ -62,7 +100,7 @@ export default function AccountSettingsPage() {
       // Update local admin state
       setAdmin({ ...admin, name });
     } catch (err: any) {
-      toast.error(err.message || "Update failed");
+      showToast(err.message || "Update failed", "error");
     } finally {
       setUpdating(false);
     }
@@ -81,7 +119,28 @@ export default function AccountSettingsPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 pb-20 relative overflow-hidden">
-      <Toaster position="top-right" />
+      
+      {/* --- TOAST CONTAINER --- */}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${
+              toast.type === "success" 
+                ? "bg-emerald-600 border-emerald-500" 
+                : "bg-red-600 border-red-500"
+            }`}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <p className="text-sm font-medium">{toast.message}</p>
+            <button onClick={() => dismissToast(toast.id)} className="ml-2 opacity-80 hover:opacity-100 transition-opacity">
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
       
       {/* Decorative Background */}
       <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-emerald-100/40 via-teal-50/30 to-transparent -z-10 pointer-events-none" />
@@ -223,7 +282,7 @@ export default function AccountSettingsPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 ml-1">Confirm New Password</label>
                     <div className="relative">
-                        <CheckCircle2 className="absolute left-3.5 top-3.5 text-slate-400" size={18} />
+                        <CheckCircle className="absolute left-3.5 top-3.5 text-slate-400" size={18} />
                         <input 
                         type="password"
                         value={confirmPassword}
@@ -253,55 +312,36 @@ export default function AccountSettingsPage() {
               </div>
             </form>
 
-            {/* Active Sessions */}
-            <div className="bg-white rounded-3xl shadow-xl shadow-emerald-900/5 border border-slate-100 p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                    <Laptop size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">Active Sessions</h3>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-white rounded-xl text-slate-600 shadow-sm border border-slate-100">
+            {/* Active Sessions - Only if Detectable */}
+            {sessionInfo && (
+              <div className="bg-white rounded-3xl shadow-xl shadow-emerald-900/5 border border-slate-100 p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
                       <Laptop size={24} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">Windows PC - Chrome</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Current Session</span>
-                        <p className="text-xs text-slate-500">192.168.1.1</p>
-                      </div>
-                    </div>
                   </div>
-                  <div className="text-right hidden sm:block">
-                    <p className="text-sm font-bold text-emerald-600">Active Now</p>
-                    <p className="text-xs text-slate-400">Jakarta, Indonesia</p>
-                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Active Sessions</h3>
                 </div>
-
-                {/* Mock Session 2 */}
-                <div className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 opacity-60 hover:opacity-100 transition-opacity">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-slate-100 rounded-xl text-slate-500">
-                      <Smartphone size={24} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-700">iPhone 13 - Safari</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-slate-500">192.168.1.56</p>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white rounded-xl text-slate-600 shadow-sm border border-slate-100">
+                        {sessionInfo.type === "mobile" ? <Smartphone size={24} /> : <Laptop size={24} />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{sessionInfo.os} — {sessionInfo.browser}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider rounded-full">Current Session</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right hidden sm:block">
-                    <p className="text-sm font-medium text-slate-500">2 days ago</p>
-                    <p className="text-xs text-slate-400">New Delhi, India</p>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-sm font-bold text-emerald-600">Active Now</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
           </div>
         </div>

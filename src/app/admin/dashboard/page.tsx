@@ -17,7 +17,10 @@ import {
   Calendar,
   RefreshCw,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle,
+  AlertCircle,
+  X
 } from "lucide-react";
 import {
   AreaChart,
@@ -61,7 +64,7 @@ type Material = {
 
 function StatCard({ title, value, subtext, icon: Icon, color, trend }: any) {
   return (
-    <div className="relative overflow-hidden p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 group">
+    <div className="relative overflow-hidden p-6 rounded-2xl bg-white border border-emerald-100 shadow-sm hover:shadow-md transition-all duration-300 group">
       <div className={`absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity ${color.text}`}>
         <Icon size={80} />
       </div>
@@ -71,11 +74,11 @@ function StatCard({ title, value, subtext, icon: Icon, color, trend }: any) {
           <div className={`p-2 rounded-lg ${color.bg} ${color.text}`}>
             <Icon size={20} />
           </div>
-          <span className="text-sm font-bold text-slate-500 uppercase tracking-wide">{title}</span>
+          <span className="text-sm font-bold text-teal-600 uppercase tracking-wide">{title}</span>
         </div>
         
         <div className="flex items-end gap-2">
-          <h3 className="text-3xl font-extrabold text-slate-800">{value}</h3>
+          <h3 className="text-3xl font-extrabold text-emerald-900">{value}</h3>
         </div>
         
         {subtext && (
@@ -89,7 +92,7 @@ function StatCard({ title, value, subtext, icon: Icon, color, trend }: any) {
                 <TrendingDown size={12} className="mr-1" /> {subtext}
               </span>
             ) : (
-              <span className="text-slate-400">{subtext}</span>
+              <span className="text-teal-400">{subtext}</span>
             )}
           </div>
         )}
@@ -102,12 +105,12 @@ function QuickAction({ href, icon: Icon, label, color }: any) {
   return (
     <Link 
       href={href}
-      className={`flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group ${color}`}
+      className={`flex flex-col items-center justify-center p-4 rounded-xl border border-emerald-100 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group ${color}`}
     >
-      <div className="p-3 rounded-full bg-slate-50 group-hover:bg-white transition-colors mb-2 shadow-sm">
-        <Icon size={24} className="text-slate-600 group-hover:text-current transition-colors" />
+      <div className="p-3 rounded-full bg-emerald-50 group-hover:bg-white transition-colors mb-2 shadow-sm">
+        <Icon size={24} className="text-emerald-600 group-hover:text-current transition-colors" />
       </div>
-      <span className="text-xs font-bold text-slate-600 group-hover:text-slate-800">{label}</span>
+      <span className="text-xs font-bold text-teal-700 group-hover:text-emerald-900">{label}</span>
     </Link>
   );
 }
@@ -128,6 +131,20 @@ export default function AdminDashboard() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
 
+  // ------------------ TOAST STATE ------------------
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  };
+
+  const dismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+  // -------------------------------------------------
+
   // Fetch Data
   async function loadDashboardData() {
     setLoading(true);
@@ -140,11 +157,14 @@ export default function AdminDashboard() {
       const rentalsData = await rentalsRes.json();
       const materialsData = await materialsRes.json();
 
-      if (rentalsData.ok && materialsData.ok) {
-        processData(rentalsData.data || [], materialsData.data || []);
+      if (!rentalsData.ok || !materialsData.ok) {
+        throw new Error("Failed to fetch data from server");
       }
-    } catch (error) {
-      console.error("Failed to load dashboard data", error);
+
+      processData(rentalsData.data || [], materialsData.data || []);
+      
+    } catch (error: any) {
+      showToast(error.message || "Failed to load dashboard data", "error");
     } finally {
       setLoading(false);
     }
@@ -203,14 +223,17 @@ export default function AdminDashboard() {
     setRevenueChart(chartData);
 
     // 3. Recent Activity (Last 5 rentals)
+    // Improved to include customer info for links
     const activity = rentals
       .sort((a, b) => new Date(b.rentedAt).getTime() - new Date(a.rentedAt).getTime())
       .slice(0, 5)
       .map(r => ({
         id: r._id,
+        customerName: r.customerName,
         text: `New rental for ${r.customerName}`,
         time: format(parseISO(r.rentedAt), "dd MMM, HH:mm"),
-        type: "rental" // Could distinguish based on status too
+        type: "rental",
+        status: r.status
       }));
     setRecentActivity(activity);
 
@@ -241,33 +264,54 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="space-y-6 p-4 animate-pulse">
-        <div className="h-8 w-48 bg-slate-200 rounded mb-6"></div>
+        <div className="h-8 w-48 bg-emerald-50 rounded mb-6"></div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-slate-200 rounded-2xl"></div>
+            <div key={i} className="h-32 bg-emerald-50 rounded-2xl"></div>
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-80 bg-slate-200 rounded-2xl"></div>
-          <div className="h-80 bg-slate-200 rounded-2xl"></div>
+          <div className="lg:col-span-2 h-80 bg-emerald-50 rounded-2xl"></div>
+          <div className="h-80 bg-emerald-50 rounded-2xl"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 relative">
+      {/* --- TOAST CONTAINER --- */}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${
+              toast.type === "success" 
+                ? "bg-emerald-600 border-emerald-500" 
+                : "bg-red-600 border-red-500"
+            }`}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <p className="text-sm font-medium">{toast.message}</p>
+            <button onClick={() => dismissToast(toast.id)} className="ml-2 opacity-80 hover:opacity-100 transition-opacity">
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
       
       {/* HEADER AREA */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard Overview</h1>
-          <p className="text-slate-500 mt-1">Welcome back, here's what's happening with your inventory today.</p>
+          <h1 className="text-3xl font-extrabold text-emerald-900 tracking-tight">Dashboard Overview</h1>
+          <p className="text-teal-600 mt-1">Welcome back, here's what's happening with your inventory today.</p>
         </div>
         
         <button 
           onClick={loadDashboardData}
-          className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm text-slate-600 hover:text-emerald-600 hover:border-emerald-200 transition-colors"
+          className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-emerald-200 shadow-sm text-teal-700 hover:text-emerald-900 hover:border-emerald-300 transition-colors"
         >
           <RefreshCw size={16} /> Refresh Data
         </button>
@@ -289,7 +333,7 @@ export default function AdminDashboard() {
           subtext="Currently ongoing" 
           trend="neutral" 
           icon={ShoppingCart} 
-          color={{ bg: "bg-blue-100", text: "text-blue-600" }} 
+          color={{ bg: "bg-teal-100", text: "text-teal-600" }} 
         />
         <StatCard 
           title="Pending Dues" 
@@ -305,7 +349,7 @@ export default function AdminDashboard() {
           subtext="In circulation" 
           trend="neutral" 
           icon={Boxes} 
-          color={{ bg: "bg-purple-100", text: "text-purple-600" }} 
+          color={{ bg: "bg-cyan-100", text: "text-cyan-600" }} 
         />
       </div>
 
@@ -316,13 +360,13 @@ export default function AdminDashboard() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Revenue Chart */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-emerald-800 flex items-center gap-2">
                   <Activity size={18} className="text-emerald-500" /> Revenue Trend
                 </h2>
-                <p className="text-xs text-slate-400">Income over the last 7 days</p>
+                <p className="text-xs text-teal-500">Income over the last 7 days</p>
               </div>
             </div>
 
@@ -335,18 +379,18 @@ export default function AdminDashboard() {
                       <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d1fae5" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                    tick={{ fontSize: 12, fill: '#0d9488' }} 
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fontSize: 12, fill: '#94a3b8' }} 
+                    tick={{ fontSize: 12, fill: '#0d9488' }} 
                     tickFormatter={(value) => `₹${value}`}
                   />
                   <Tooltip 
@@ -370,11 +414,11 @@ export default function AdminDashboard() {
 
           {/* Quick Actions Bar */}
           <div>
-            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Quick Actions</h3>
+            <h3 className="text-sm font-bold text-teal-700 uppercase tracking-wider mb-3">Quick Actions</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <QuickAction href="/admin/rentals" icon={Plus} label="New Rental" color="hover:border-emerald-200 hover:text-emerald-600" />
-                <QuickAction href="/admin/materials" icon={Package} label="Add Material" color="hover:border-blue-200 hover:text-blue-600" />
-                <QuickAction href="/admin/customers" icon={Users} label="Add Customer" color="hover:border-purple-200 hover:text-purple-600" />
+                <QuickAction href="/admin/materials" icon={Package} label="Add Material" color="hover:border-teal-200 hover:text-teal-600" />
+                <QuickAction href="/admin/customers" icon={Users} label="Add Customer" color="hover:border-cyan-200 hover:text-cyan-600" />
                 <QuickAction href="/admin/reports" icon={Calendar} label="View Reports" color="hover:border-amber-200 hover:text-amber-600" />
             </div>
           </div>
@@ -385,24 +429,28 @@ export default function AdminDashboard() {
         <div className="space-y-6">
           
           {/* Recent Activity Feed */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <h2 className="font-bold text-slate-800 text-sm">Recent Activity</h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
+            <div className="p-4 border-b border-emerald-100 bg-emerald-50/50 flex justify-between items-center">
+              <h2 className="font-bold text-emerald-800 text-sm">Recent Activity</h2>
               <Link href="/admin/rentals" className="text-xs text-emerald-600 font-medium hover:underline flex items-center">View All <ArrowRight size={12} className="ml-1"/></Link>
             </div>
             <div className="p-4">
               {recentActivity.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-4">No recent activity</p>
+                <p className="text-sm text-teal-400 text-center py-4">No recent activity</p>
               ) : (
-                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-6 before:h-full before:w-0.5 before:-z-10 before:bg-slate-100">
+                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-6 before:h-full before:w-0.5 before:-z-10 before:bg-emerald-100">
                   {recentActivity.map((item) => (
-                    <div key={item.id} className="flex relative">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-sm flex-shrink-0 mr-3 bg-blue-500">
+                    <div key={item.id} className="flex relative group">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-sm flex-shrink-0 mr-3 bg-teal-500 z-10">
                         <div className="w-2 h-2 bg-white rounded-full" />
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">{item.text}</p>
-                        <span className="text-xs text-slate-400">{item.time}</span>
+                      <div className="flex-1">
+                        <Link href={`/admin/rentals?id=${item.id}`} className="block p-2 -m-2 rounded-lg hover:bg-emerald-50 transition-colors">
+                            <p className="text-sm font-medium text-teal-800 group-hover:text-emerald-600 transition-colors">
+                                New rental for <span className="font-bold">{item.customerName}</span>
+                            </p>
+                            <span className="text-xs text-teal-400">{item.time}</span>
+                        </Link>
                       </div>
                     </div>
                   ))}
@@ -412,13 +460,13 @@ export default function AdminDashboard() {
           </div>
 
           {/* Mini Inventory Health */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-900 to-teal-950 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
             <div className="relative z-10">
                 <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
                   Inventory Health 
                   {lowStockItems.length > 0 && <AlertTriangle size={16} className="text-amber-400"/>}
                 </h3>
-                <p className="text-slate-400 text-sm mb-4">
+                <p className="text-emerald-200/70 text-sm mb-4">
                   {lowStockItems.length > 0 
                     ? `${lowStockItems.length} items are running low.` 
                     : "All items are well stocked."}
@@ -427,7 +475,7 @@ export default function AdminDashboard() {
                 <div className="space-y-3">
                     {lowStockItems.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-sm items-center">
-                          <span className="text-slate-300 truncate max-w-[150px]">{item.name}</span>
+                          <span className="text-emerald-50 truncate max-w-[150px]">{item.name}</span>
                           <span className={`font-bold px-2 py-0.5 rounded text-xs ${
                             item.severity === 'critical' 
                               ? 'text-red-400 bg-red-400/10' 

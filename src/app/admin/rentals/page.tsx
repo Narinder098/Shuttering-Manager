@@ -1,8 +1,6 @@
-// src/components/AdminRentalsPro.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
 import {
   Search,
   Plus,
@@ -13,6 +11,8 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -89,7 +89,6 @@ export default function AdminRentalsPro() {
   const [materialsLoading, setMaterialsLoading] = useState(false);
 
   /* ----- returns & payment local UI state ----- */
-  // returnQtys stored as strings to avoid input focus glitches; sync validated values on submit
   const [returnQtysStr, setReturnQtysStr] = useState<Record<string, string>>({});
   const [payAmountStr, setPayAmountStr] = useState<string>("");
 
@@ -102,7 +101,6 @@ export default function AdminRentalsPro() {
     { materialId: null, pricePerDay: 0, qtyRented: 1 },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // refs for qty inputs to allow auto-focus (NEW)
   const qtyInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   /* ----- sorting ----- */
@@ -110,6 +108,22 @@ export default function AdminRentalsPro() {
     key: "rentedAt" | "totalAmount" | "dueAmount" | "paidAmount" | "customerName" | "status";
     dir: "asc" | "desc";
   }>({ key: "rentedAt", dir: "desc" });
+
+  /* ------------------ TOAST STATE & HELPERS ------------------ */
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  };
+
+  const dismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+  /* ----------------------------------------------------------- */
 
   /* ---------------- Fetch list ---------------- */
   async function loadList() {
@@ -119,7 +133,8 @@ export default function AdminRentalsPro() {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Failed to load rentals");
       let data: RentalSummary[] = j.data || [];
-      // apply local sort client-side (server-side would be ideal)
+      
+      // apply local sort client-side
       data = data.sort((a: any, b: any) => {
         const k = sortBy.key;
         let va: any = (a as any)[k];
@@ -136,7 +151,7 @@ export default function AdminRentalsPro() {
       });
       setList(data);
     } catch (err: any) {
-      toast.error(err.message || "Network error");
+      showToast(err.message || "Network error", "error");
     } finally {
       setLoading(false);
     }
@@ -156,7 +171,7 @@ export default function AdminRentalsPro() {
       if (!json.ok) throw new Error(json.error || "Failed to load materials");
       setMaterials(json.data || []);
     } catch (err: any) {
-      toast.error(err.message || "Error loading materials");
+      showToast(err.message || "Error loading materials", "error");
     } finally {
       setMaterialsLoading(false);
     }
@@ -179,7 +194,7 @@ export default function AdminRentalsPro() {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Rental not found");
       const r: RentalFull = j.data;
-      // normalize numbers
+      
       r.totalAmount = Number(r.totalAmount || 0);
       r.paidAmount = Number(r.paidAmount || 0);
       r.dueAmount = Number(r.dueAmount || 0);
@@ -192,7 +207,7 @@ export default function AdminRentalsPro() {
       }));
       setActiveRental(r);
     } catch (err: any) {
-      toast.error(err.message || "Failed to load rental");
+      showToast(err.message || "Failed to load rental", "error");
       setModalOpen(false);
     } finally {
       setModalLoading(false);
@@ -200,7 +215,6 @@ export default function AdminRentalsPro() {
   }
 
   /* ---------------- Return helpers ---------------- */
-  // key generator for items
   function itemKey(it: { materialId: string; variantId?: string | null }) {
     return `${it.materialId}::${it.variantId ?? "null"}`;
   }
@@ -209,27 +223,25 @@ export default function AdminRentalsPro() {
     setReturnQtysStr((s) => ({ ...s, [key]: val }));
   }
 
-  // Submit partial returns (array of { materialId, variantId?, quantityReturned })
   async function submitReturn() {
-    if (!activeRental) return toast.error("No rental loaded");
-    // build returnedItems converting strings to numbers and validating
+    if (!activeRental) return showToast("No rental loaded", "error");
+    
     const returnedItems: any[] = [];
     for (const it of activeRental.items) {
       const k = itemKey(it);
       const s = (returnQtysStr[k] || "").trim();
       if (!s) continue;
-      if (!/^\d+$/.test(s)) return toast.error("Invalid return quantity");
+      if (!/^\d+$/.test(s)) return showToast("Invalid return quantity", "error");
       const num = Number(s);
       if (num <= 0) continue;
       const remaining = Math.max(0, it.qtyRented - (it.qtyReturned || 0));
-      if (num > remaining) return toast.error(`Return qty for ${it.label || "item"} exceeds remaining (${remaining})`);
+      if (num > remaining) return showToast(`Return qty for ${it.label || "item"} exceeds remaining (${remaining})`, "error");
       returnedItems.push({ materialId: it.materialId, variantId: it.variantId ?? null, quantityReturned: num });
     }
 
-    if (returnedItems.length === 0) return toast.error("Enter return quantity for at least one item");
+    if (returnedItems.length === 0) return showToast("Enter return quantity for at least one item", "error");
 
     const id = activeRental._id;
-    toast.loading("Processing return...");
     try {
       const res = await fetch(`/api/rentals/${id}/return`, {
         method: "PUT",
@@ -238,19 +250,18 @@ export default function AdminRentalsPro() {
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Return failed");
-      toast.success("Return processed");
-      // refresh rental and list
+      
+      showToast("Return processed successfully!", "success");
       await openRentalModal(id);
       await loadList();
       setReturnQtysStr({});
     } catch (err: any) {
-      toast.error(err.message || "Return failed");
+      showToast(err.message || "Return failed", "error");
     }
   }
 
-  // Return all remaining quantities for the rental
   async function returnAll() {
-    if (!activeRental) return toast.error("No rental loaded");
+    if (!activeRental) return showToast("No rental loaded", "error");
     const returnedItems = activeRental.items
       .map((it) => {
         const remaining = Math.max(0, it.qtyRented - (it.qtyReturned || 0));
@@ -258,10 +269,9 @@ export default function AdminRentalsPro() {
         return { materialId: it.materialId, variantId: it.variantId ?? null, quantityReturned: remaining };
       })
       .filter(Boolean);
-    if (returnedItems.length === 0) return toast.success("Nothing to return");
+    if (returnedItems.length === 0) return showToast("Nothing to return", "success");
 
     const id = activeRental._id;
-    toast.loading("Returning all items...");
     try {
       const res = await fetch(`/api/rentals/${id}/return`, {
         method: "PUT",
@@ -270,25 +280,24 @@ export default function AdminRentalsPro() {
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Return all failed");
-      toast.success("All items returned");
+      
+      showToast("All items returned successfully", "success");
       await openRentalModal(id);
       await loadList();
     } catch (err: any) {
-      toast.error(err.message || "Return all failed");
+      showToast(err.message || "Return all failed", "error");
     }
   }
 
   /* ---------------- Payment helpers ---------------- */
   async function makePayment() {
-    if (!activeRental) return toast.error("No rental loaded");
+    if (!activeRental) return showToast("No rental loaded", "error");
     const s = (payAmountStr || "").trim();
-    if (!s || !/^\d+(\.\d{1,2})?$/.test(s)) return toast.error("Enter valid amount");
+    if (!s || !/^\d+(\.\d{1,2})?$/.test(s)) return showToast("Enter valid amount", "error");
     const amount = Number(s);
-    if (amount <= 0) return toast.error("Enter amount > 0");
+    if (amount <= 0) return showToast("Enter amount > 0", "error");
 
     const id = activeRental._id;
-    const toastId = toast.loading("Recording payment...");
-    
     try {
       const res = await fetch(`/api/rentals/${id}`, {
         method: "PUT",
@@ -298,20 +307,13 @@ export default function AdminRentalsPro() {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Payment failed");
       
-      toast.success("Payment recorded", { id: toastId });
+      showToast("Payment recorded successfully", "success");
       await openRentalModal(id);
       await loadList();
       setPayAmountStr("");
     } catch (err: any) {
-      toast.error(err.message || "Payment failed", { id: toastId });
+      showToast(err.message || "Payment failed", "error");
     }
-  }
-
-  /* ---------------- Utility: payment label & badge ----- */
-  function paymentLabel(r: RentalSummary) {
-    if (Number(r.dueAmount || 0) <= 0) return "Paid";
-    if (Number(r.paidAmount || 0) > 0) return "Partial";
-    return "Pending";
   }
 
   /* ---------------- Sorting handler ---------------- */
@@ -319,7 +321,7 @@ export default function AdminRentalsPro() {
     setSortBy((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
   }
 
-  /* ---------------- Qty input component (prevents focus loss) ---------------- */
+  /* ---------------- Qty input component ---------------- */
   function QtyInput({
     initial,
     onSync,
@@ -331,7 +333,6 @@ export default function AdminRentalsPro() {
   }) {
     const [local, setLocal] = useState<string>(() => (initial === 0 ? "" : String(initial)));
 
-    // keep local when initial changes (e.g. modal reload)
     useEffect(() => {
       setLocal(initial === 0 ? "" : String(initial));
     }, [initial]);
@@ -367,7 +368,7 @@ export default function AdminRentalsPro() {
     );
   }
   
-  /* ---------------- CALCULATE TOTALS (NEW) ---------------- */
+  /* ---------------- CALCULATE TOTALS ---------------- */
   const totals = useMemo(() => {
     let total = 0;
     for (const it of items)
@@ -377,22 +378,18 @@ export default function AdminRentalsPro() {
     return { total, paid, due: Math.max(0, total - paid) };
   }, [items, paidAmountOnCreate]);
 
-  /* ---------------- ROW HELPERS (NEW) ---------------- */
+  /* ---------------- ROW HELPERS ---------------- */
   function addRow() {
     setItems((s) => [...s, { materialId: null, pricePerDay: 0, qtyRented: 1 }]);
-    // focus will be handled by effect when items length changes
     setTimeout(() => {
-      const idx = items.length; // new index
+      const idx = items.length;
       const el = qtyInputRefs.current[idx];
-      if (el) el.focus();
-      // select contents for quick typing
-      if (el) el.select();
+      if (el) { el.focus(); el.select(); }
     }, 50);
   }
 
   function removeRow(i: number) {
     setItems((s) => s.filter((_, idx) => idx !== i));
-    // cleanup ref
     qtyInputRefs.current.splice(i, 1);
   }
 
@@ -403,12 +400,7 @@ export default function AdminRentalsPro() {
   function onSelectMaterial(i: number, matId: string) {
     const mat = materials.find((m) => m._id === matId);
     if (!mat)
-      return updateRow(i, {
-        materialId: null,
-        variantId: null,
-        pricePerDay: 0,
-        qtyRented: 1,
-      });
+      return updateRow(i, { materialId: null, variantId: null, pricePerDay: 0, qtyRented: 1 });
 
     const first = mat.variants?.[0] || null;
 
@@ -421,13 +413,9 @@ export default function AdminRentalsPro() {
       qtyRented: 1,
     });
 
-    // focus qty for quicker entry
     setTimeout(() => {
       const el = qtyInputRefs.current[i];
-      if (el) {
-        el.focus();
-        el.select();
-      }
+      if (el) { el.focus(); el.select(); }
     }, 30);
   }
 
@@ -435,8 +423,7 @@ export default function AdminRentalsPro() {
     const row = items[i];
     const mat = materials.find((m) => m._id === row.materialId);
     const v = mat?.variants?.find((x) => x._id === varId);
-    if (!v)
-      return updateRow(i, { variantId: null, variantLabel: undefined });
+    if (!v) return updateRow(i, { variantId: null, variantLabel: undefined });
 
     updateRow(i, {
       variantId: v._id,
@@ -444,25 +431,21 @@ export default function AdminRentalsPro() {
       pricePerDay: v.pricePerDay,
     });
 
-    // focus qty for quicker entry
     setTimeout(() => {
       const el = qtyInputRefs.current[i];
-      if (el) {
-        el.focus();
-        el.select();
-      }
+      if (el) { el.focus(); el.select(); }
     }, 30);
   }
 
-  /* ---------------- SUBMIT CREATE (NEW) ---------------- */
+  /* ---------------- SUBMIT CREATE ---------------- */
   async function submitCreate() {
-    if (!customerName.trim()) return toast.error("Customer name required");
+    if (!customerName.trim()) return showToast("Customer name required", "error");
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
-      if (!it.materialId) return toast.error(`Row ${i + 1}: Select material`);
+      if (!it.materialId) return showToast(`Row ${i + 1}: Select material`, "error");
       if (!it.qtyRented || Number(it.qtyRented) <= 0)
-        return toast.error(`Row ${i + 1}: Quantity must be > 0`);
+        return showToast(`Row ${i + 1}: Quantity must be > 0`, "error");
     }
 
     setIsSubmitting(true);
@@ -489,7 +472,7 @@ export default function AdminRentalsPro() {
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Create failed");
 
-      toast.success("Rental created!");
+      showToast("Rental created successfully!", "success");
       setModalOpen(false);
 
       // Reset form state
@@ -500,15 +483,15 @@ export default function AdminRentalsPro() {
       setItems([{ materialId: null, pricePerDay: 0, qtyRented: 1 }]);
       qtyInputRefs.current = [];
 
-      loadList(); // Refresh the list
+      loadList();
     } catch (err: any) {
-      toast.error(err.message || "Create failed");
+      showToast(err.message || "Create failed", "error");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  /* ---------------- QUANTITY FIXED COMPONENT FOR CREATE (NEW) ---------------- */
+  /* ---------------- COMPONENT: Create Qty Input ---------------- */
   function CreateQtyInput({ row, i }: { row: RentalItemDraft; i: number }) {
     const mat = materials.find((m) => m._id === row.materialId);
     const maxQty =
@@ -584,7 +567,7 @@ export default function AdminRentalsPro() {
     );
   }
 
-  /* ---------------- SINGLE ROW UI FOR CREATE (NEW) ---------------- */
+  /* ---------------- COMPONENT: Row Input ---------------- */
   function RowInput({ i }: { i: number }) {
     const row = items[i];
 
@@ -660,8 +643,28 @@ export default function AdminRentalsPro() {
   const totalCount = list.length;
 
   return (
-    <div className="space-y-6 pb-10">
-      <Toaster position="top-right" />
+    <div className="space-y-6 pb-10 relative">
+      {/* --- TOAST CONTAINER --- */}
+      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${
+              toast.type === "success" 
+                ? "bg-emerald-600 border-emerald-500" 
+                : "bg-red-600 border-red-500"
+            }`}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <p className="text-sm font-medium">{toast.message}</p>
+            <button onClick={() => dismissToast(toast.id)} className="ml-2 opacity-80 hover:opacity-100 transition-opacity">
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -967,7 +970,7 @@ export default function AdminRentalsPro() {
         </div>
       )}
 
-      {/* ---------------- Modal: Create Rental (NEW UI & LOGIC) ---------------- */}
+      {/* ---------------- Modal: Create Rental ---------------- */}
       {modalOpen === "create" && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-4 sm:pt-10 px-4">
           <div

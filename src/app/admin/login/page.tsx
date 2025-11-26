@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, KeyRound, Mail, Smartphone, ArrowRight, Loader2, Lock, CheckCircle2 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import { ShieldCheck, KeyRound, Mail, Smartphone, ArrowRight, Loader2, Lock, CheckCircle2, AlertCircle, CheckCircle, X } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -19,12 +18,25 @@ export default function AdminLoginPage() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
 
+  // ------------------ TOAST STATE ------------------
+  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+  };
+
+  const dismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+  // -------------------------------------------------
+
   // --- Handlers ---
 
   async function loginWithPassword(e?: React.FormEvent) {
     if (e) e.preventDefault();
     setLoading(true);
-    const toastId = toast.loading("Authenticating...");
 
     try {
       const res = await fetch("/api/admin/login/password", {
@@ -35,16 +47,16 @@ export default function AdminLoginPage() {
       const data = await res.json();
       
       if (!data.ok) {
-        toast.error(data.error || "Login failed", { id: toastId });
+        showToast(data.error || "Login failed", "error");
         setLoading(false);
         return;
       }
       
-      toast.success("Welcome back! Redirecting...", { id: toastId });
+      showToast("Welcome back! Redirecting...", "success");
       // Force full reload to ensure Middleware picks up the new cookie immediately
       window.location.href = "/admin/dashboard"; 
     } catch {
-      toast.error("Network connection error", { id: toastId });
+      showToast("Network connection error", "error");
       setLoading(false);
     }
   }
@@ -52,11 +64,10 @@ export default function AdminLoginPage() {
   async function sendOtp(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (!identifier) {
-      toast.error("Please enter your email or phone number");
+      showToast("Please enter your email or phone number", "error");
       return;
     }
     setLoading(true);
-    const toastId = toast.loading("Sending verification code...");
 
     try {
       const res = await fetch("/api/admin/login/request-otp", {
@@ -66,7 +77,7 @@ export default function AdminLoginPage() {
       });
       const data = await res.json();
       if (!data.ok) {
-        toast.error(data.error || "Could not send OTP", { id: toastId });
+        showToast(data.error || "Could not send OTP", "error");
         setLoading(false);
         return;
       }
@@ -74,12 +85,12 @@ export default function AdminLoginPage() {
       
       if (data.otpSample) {
         // For demo purposes only
-        toast.success(`Code sent! (Dev: ${data.otpSample})`, { id: toastId, duration: 6000 });
+        showToast(`Code sent! (Dev: ${data.otpSample})`, "success");
       } else {
-        toast.success("Verification code sent!", { id: toastId });
+        showToast("Verification code sent!", "success");
       }
     } catch {
-      toast.error("Network connection error", { id: toastId });
+      showToast("Network connection error", "error");
     }
     setLoading(false);
   }
@@ -87,11 +98,10 @@ export default function AdminLoginPage() {
   async function verifyOtp(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (!identifier || !otp) {
-      toast.error("Please enter the verification code");
+      showToast("Please enter the verification code", "error");
       return;
     }
     setLoading(true);
-    const toastId = toast.loading("Verifying...");
 
     try {
       const res = await fetch("/api/admin/login/verify-otp", {
@@ -101,21 +111,42 @@ export default function AdminLoginPage() {
       });
       const data = await res.json();
       if (!data.ok) {
-        toast.error(data.error || "Invalid code", { id: toastId });
+        showToast(data.error || "Invalid code", "error");
         setLoading(false);
         return;
       }
-      toast.success("Verified successfully!", { id: toastId });
+      showToast("Verified successfully!", "success");
       window.location.href = "/admin/dashboard";
     } catch {
-      toast.error("Network connection error", { id: toastId });
+      showToast("Network connection error", "error");
       setLoading(false);
     }
   }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4 relative overflow-hidden">
-      <Toaster position="top-right" />
+      
+      {/* --- TOAST CONTAINER --- */}
+      <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-down ${
+              toast.type === "success" 
+                ? "bg-emerald-600 border-emerald-500" 
+                : "bg-red-600 border-red-500"
+            }`}
+          >
+            <div className="flex-shrink-0">
+              {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+            </div>
+            <p className="text-sm font-medium">{toast.message}</p>
+            <button onClick={() => dismissToast(toast.id)} className="ml-2 opacity-80 hover:opacity-100 transition-opacity">
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
       
       {/* Background Decoration */}
       <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10" />
@@ -198,7 +229,7 @@ export default function AdminLoginPage() {
                     type="button"
                     onClick={() => {
                         setTab("otp");
-                        toast("Switched to OTP login for recovery", { icon: "🔑" });
+                        showToast("Switched to OTP login for recovery", "success");
                     }}
                     className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors focus:outline-none"
                   >
