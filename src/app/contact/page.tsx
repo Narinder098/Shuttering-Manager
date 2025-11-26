@@ -63,9 +63,9 @@ export default function ContactPage() {
         <ContactCard
           icon={Mail}
           title="Email Us"
-          info="help@sbm-manager.com"
+          info="sutharbuildingmaterial@gmail.com"
           actionText="Send Email"
-          actionLink="mailto:help@sbm-manager.com"
+          actionLink="mailto:sutharbuildingmaterial@gmail.com"
           delay={0.2}
           color="black"
         />
