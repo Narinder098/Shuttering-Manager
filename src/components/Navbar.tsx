@@ -58,14 +58,31 @@ export default function Navbar() {
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
     setAdmin(null);
-    // CHANGED: Redirect to Home Page instead of Admin Login
     router.push("/"); 
   };
   
   if (loading) {
     return (
-      <header className="sticky top-0 z-50 bg-slate-800 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 py-4 text-white font-medium">Loading...</div>
+      <header className="sticky top-0 z-50 bg-slate-800 shadow-xl border-b border-teal-700/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 flex items-center justify-between">
+          {/* Logo Skeleton */}
+          <div className="flex items-center gap-4">
+             <div className="h-8 w-32 bg-slate-700/50 rounded animate-pulse"></div>
+          </div>
+
+          {/* Desktop Nav Skeleton */}
+          <div className="hidden md:flex items-center gap-6">
+             <div className="flex items-center gap-4">
+                {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-6 w-20 bg-slate-700/50 rounded animate-pulse"></div>
+                ))}
+             </div>
+             <div className="h-9 w-24 bg-slate-700/50 rounded-lg animate-pulse"></div>
+          </div>
+
+          {/* Mobile Toggle Skeleton */}
+          <div className="md:hidden h-8 w-8 bg-slate-700/50 rounded animate-pulse"></div>
+        </div>
       </header>
     );
   }

@@ -9,7 +9,7 @@ export default function Footer() {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <footer className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 text-white mt-20">
+    <footer className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-600 text-white mt-20">
       <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
 
         {/* BRAND */}
