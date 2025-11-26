@@ -125,7 +125,7 @@ export default function MaterialsPage() {
   return (
     <main className="min-h-screen py-10 px-4 bg-slate-50 relative overflow-hidden">
       {/* Decorative background blob */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-emerald-50/80 to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-96 bg-linear-to-b from-emerald-50/80 to-transparent -z-10 pointer-events-none" />
 
       <div className="max-w-7xl mx-auto space-y-8">
         
@@ -143,7 +143,7 @@ export default function MaterialsPage() {
             
             {/* 1. Dropdown Filter */}
             <div className="w-full sm:w-56 relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-xl opacity-20 group-focus-within:opacity-100 transition duration-500 blur-sm"></div>
+                <div className="absolute -inset-0.5 bg-linear-to-r from-emerald-400 to-teal-400 rounded-xl opacity-20 group-focus-within:opacity-100 transition duration-500 blur-sm"></div>
                 <div className="relative flex items-center bg-white rounded-xl shadow-sm">
                     <Filter size={20} className="absolute left-3 text-emerald-500 pointer-events-none" />
                     <select
@@ -162,7 +162,7 @@ export default function MaterialsPage() {
 
             {/* 2. Search Bar */}
             <div className="w-full sm:w-72 relative group">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-xl opacity-30 group-focus-within:opacity-100 transition duration-500 blur-md"></div>
+                <div className="absolute -inset-0.5 bg-linear-to-r from-emerald-400 to-teal-400 rounded-xl opacity-30 group-focus-within:opacity-100 transition duration-500 blur-md"></div>
                 <div className="relative flex items-center bg-white rounded-xl shadow-sm">
                     <Search size={20} className="absolute left-3 text-emerald-400 group-focus-within:text-emerald-600 transition-colors" />
                     <input
@@ -283,7 +283,7 @@ export default function MaterialsPage() {
                 className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl shadow-emerald-900/20 overflow-hidden z-10"
               >
                 {/* Modal Header */}
-                <div className="relative h-32 bg-gradient-to-br from-emerald-600 to-teal-700 p-6 flex flex-col justify-end">
+                <div className="relative h-32 bg-linear-to-br from-emerald-600 to-teal-700 p-6 flex flex-col justify-end">
                     <button
                         onClick={() => setOpenVariant(null)}
                         className="absolute top-4 right-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"

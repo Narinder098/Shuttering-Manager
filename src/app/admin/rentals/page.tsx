@@ -675,7 +675,7 @@ export default function AdminRentalsPro() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setModalOpen("create")}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-lg hover:shadow-xl transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-linear-to-r from-emerald-600 to-teal-500 text-white shadow-lg hover:shadow-xl transition-all"
           >
             <Plus size={18} /> <span className="hidden sm:inline font-medium">New Rental</span>
           </button>
@@ -704,7 +704,7 @@ export default function AdminRentalsPro() {
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gradient-to-br from-emerald-700 to-teal-500 text-white text-sm"><tr>
+            <thead className="bg-linear-to-br from-emerald-700 to-teal-500 text-white text-sm"><tr>
                 <th className="w-[25%] sm:w-[20%] text-left px-6 py-4 font-semibold cursor-pointer hover:bg-white/10 transition" onClick={() => toggleSort("customerName")}>
                   <div className="flex items-center gap-2">
                     Customer

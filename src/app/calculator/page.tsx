@@ -142,7 +142,7 @@ export default function CalculatorPage() {
       <Toaster position="top-right" />
       
       {/* Decorative Background */}
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-50/80 to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-linear-to-b from-emerald-50/80 to-transparent -z-10 pointer-events-none" />
 
       <div className="max-w-6xl mx-auto space-y-8">
         
@@ -266,7 +266,7 @@ export default function CalculatorPage() {
                 {/* Add Button */}
                 <button
                   onClick={addItem}
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-linear-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   Add to Estimate <ArrowRight size={18} />
                 </button>

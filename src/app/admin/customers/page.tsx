@@ -143,7 +143,7 @@ export default function CustomersPage() {
         </div>
         
         {/* Stats Card (Mini) */}
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-3 rounded-xl border border-emerald-100 shadow-sm">
+        <div className="bg-linear-to-r from-emerald-50 to-teal-50 px-5 py-3 rounded-xl border border-emerald-100 shadow-sm">
             <span className="text-xs text-emerald-600 uppercase font-bold tracking-wider">Total Customers</span>
             <div className="text-2xl font-extrabold text-emerald-900">{list.length}</div>
         </div>
@@ -169,8 +169,8 @@ export default function CustomersPage() {
       <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            {/* Emerald Gradient Header */}
-            <thead className="bg-gradient-to-br from-emerald-700 to-teal-600 text-white"><tr>
+            {/* Emerald linear Header */}
+            <thead className="bg-linear-to-br from-emerald-700 to-teal-600 text-white"><tr>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider cursor-pointer hover:bg-white/10 transition" onClick={() => toggleSort("name")}>
                   <div className="flex items-center gap-2">
                     Customer {sortBy.key === "name" && (sortBy.dir === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}

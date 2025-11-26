@@ -112,7 +112,7 @@ export default function Navbar() {
             <Link
                 href={logoHref}
                 className={`
-                    text-2xl font-extrabold flex-shrink-0 transition duration-200 
+                    text-2xl font-extrabold shrink-0 transition duration-200 
                     ${isDashboardActive ? 'text-teal-300' : 'text-white hover:text-teal-300'}
                 `}
             >

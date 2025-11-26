@@ -314,7 +314,7 @@ export default function AdminMaterialsPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowAddMaterial(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow-md hover:shadow-lg transition-all">
+          <button onClick={() => setShowAddMaterial(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-linear-to-r from-emerald-600 to-teal-500 text-white shadow-md hover:shadow-lg transition-all">
             <Plus size={16} /> Add Material
           </button>
         </div>
@@ -322,8 +322,8 @@ export default function AdminMaterialsPage() {
 
       {/* Mixed Cards */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-        {/* Hero gradient card - Takes up full width on mobile/tablet */}
-        <div className="lg:col-span-4 bg-gradient-to-br from-emerald-600 to-teal-400 text-white rounded-2xl p-6 shadow-lg border border-emerald-200">
+        {/* Hero linear card - Takes up full width on mobile/tablet */}
+        <div className="lg:col-span-4 bg-linear-to-br from-emerald-600 to-teal-400 text-white rounded-2xl p-6 shadow-lg border border-emerald-200">
           <div className="flex items-start justify-between">
             <div>
               <div className="text-sm opacity-90">Inventory Overview</div>
@@ -376,7 +376,7 @@ export default function AdminMaterialsPage() {
       <div className="bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gradient-to-br from-emerald-700 to-teal-500 text-white"><tr>
+            <thead className="bg-linear-to-br from-emerald-700 to-teal-500 text-white"><tr>
               <th className="text-left px-4 py-3 text-sm font-semibold w-[40%] sm:w-[35%]">Name</th>
               <th className="hidden sm:table-cell text-right px-4 py-3 text-sm font-semibold w-[15%]">Total Qty</th>
               <th className="text-right px-4 py-3 text-sm font-semibold w-[15%]">Available</th>
@@ -565,7 +565,7 @@ export default function AdminMaterialsPage() {
 
                 <div className="mt-6 flex justify-end gap-3">
                 <button onClick={() => setShowAddMaterial(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-colors">Cancel</button>
-                <button onClick={submitNewMaterial} className="px-6 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md hover:shadow-lg hover:from-emerald-700 hover:to-teal-700 font-medium transition-all">Create Material</button>
+                <button onClick={submitNewMaterial} className="px-6 py-2 rounded-lg bg-linear-to-r from-emerald-600 to-teal-600 text-white shadow-md hover:shadow-lg hover:from-emerald-700 hover:to-teal-700 font-medium transition-all">Create Material</button>
                 </div>
             </div>
           </div>

@@ -374,10 +374,10 @@ export default function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <linearlinear id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
                       <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                    </linearGradient>
+                    </linearlinear>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d1fae5" />
                   <XAxis 
@@ -460,7 +460,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Mini Inventory Health */}
-          <div className="bg-gradient-to-br from-emerald-900 to-teal-950 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
+          <div className="bg-linear-to-br from-emerald-900 to-teal-950 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
             <div className="relative z-10">
                 <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
                   Inventory Health 

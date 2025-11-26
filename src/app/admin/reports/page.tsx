@@ -499,7 +499,7 @@ export default function AdminReportsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-gradient-to-br from-emerald-700 to-teal-600 text-white text-xs uppercase font-semibold text-left">
+                <thead className="bg-linear-to-br from-emerald-700 to-teal-600 text-white text-xs uppercase font-semibold text-left">
                   <tr>
                     <th className="py-3 px-6">Date</th>
                     <th className="py-3 px-6">Customer</th>
@@ -536,7 +536,7 @@ export default function AdminReportsPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-gradient-to-br from-red-700 to-orange-600 text-white text-xs uppercase font-semibold text-left"><tr>
+                <thead className="bg-linear-to-br from-red-700 to-orange-600 text-white text-xs uppercase font-semibold text-left"><tr>
                     <th className="py-3 px-6">Customer</th>
                     <th className="py-3 px-6 text-right">Due Amount</th>
                     <th className="py-3 px-6 text-center">Action</th>
@@ -573,7 +573,7 @@ export default function AdminReportsPage() {
          </div>
          <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-                <thead className="bg-gradient-to-br from-emerald-700 to-teal-500 text-white"><tr>
+                <thead className="bg-linear-to-br from-emerald-700 to-teal-500 text-white"><tr>
                     <th className="py-3 px-6 text-left font-semibold">Material Name</th>
                     <th className="py-3 px-6 text-right font-semibold">Total Rented Out</th>
                     <th className="py-3 px-6 text-right font-semibold">Returned</th>

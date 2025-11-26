@@ -143,7 +143,7 @@ export default function AccountSettingsPage() {
       </div>
       
       {/* Decorative Background */}
-      <div className="absolute top-0 left-0 w-full h-[400px] bg-gradient-to-b from-emerald-100/40 via-teal-50/30 to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-[400px] bg-linear-to-b from-emerald-100/40 via-teal-50/30 to-transparent -z-10 pointer-events-none" />
       <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10" />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
@@ -159,11 +159,11 @@ export default function AccountSettingsPage() {
           {/* Sidebar / User Info Card */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white rounded-3xl shadow-xl shadow-emerald-900/5 border border-slate-100 p-8 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-br from-emerald-500 to-teal-600" />
+              <div className="absolute top-0 left-0 w-full h-24 bg-linear-to-br from-emerald-500 to-teal-600" />
               
               <div className="relative z-10">
                 <div className="w-28 h-28 mx-auto bg-white p-1.5 rounded-full shadow-lg mb-4">
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center text-emerald-700 text-4xl font-bold">
+                    <div className="w-full h-full bg-linear-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center text-emerald-700 text-4xl font-bold">
                         {admin?.name?.[0]?.toUpperCase() || "A"}
                     </div>
                 </div>
@@ -299,7 +299,7 @@ export default function AccountSettingsPage() {
                 <button
                   type="submit"
                   disabled={updating}
-                  className="px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="px-8 py-3.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:shadow-emerald-300 transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {updating ? (
                     "Saving Changes..."

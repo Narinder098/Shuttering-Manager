@@ -8,7 +8,7 @@ export default function ContactPage() {
     <main className="min-h-screen bg-slate-50 pb-20 relative overflow-hidden">
 
       {/* Decorative Background */}
-      <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-emerald-100/40 via-teal-50/30 to-transparent -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-[600px] bg-linear-to-b from-emerald-100/40 via-teal-50/30 to-transparent -z-10 pointer-events-none" />
       {/* Abstract Shapes for Depth */}
       <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl -z-10" />
       <div className="absolute top-[20%] left-[-10%] w-72 h-72 bg-teal-200/20 rounded-full blur-3xl -z-10" />
@@ -24,7 +24,7 @@ export default function ContactPage() {
             <Sparkles size={14} /> We're here to help
           </div>
           <h1 className="text-4xl sm:text-6xl font-extrabold text-slate-900 tracking-tight">
-            Get in <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Touch</span>
+            Get in <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-600 to-teal-500">Touch</span>
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
             Have a question about inventory or need a custom quote? <br className="hidden sm:block" />
@@ -102,7 +102,7 @@ export default function ContactPage() {
           className="bg-white/90 backdrop-blur rounded-3xl shadow-xl shadow-emerald-900/5 border border-slate-100 p-8 sm:p-10 relative overflow-hidden"
         >
           {/* Corner decoration */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-bl-[100px] -z-10 opacity-50" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-emerald-50 to-teal-50 rounded-bl-[100px] -z-10 opacity-50" />
 
           <h2 className="text-3xl font-extrabold text-slate-900 mb-3">Send a Message</h2>
           <p className="text-slate-500 mb-8">Fill out the form below and we'll get back to you within 2 hours.</p>
@@ -126,7 +126,7 @@ export default function ContactPage() {
 
             <button
               type="button"
-              className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
+              className="w-full py-4 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               <Send size={18} /> Send Message
             </button>

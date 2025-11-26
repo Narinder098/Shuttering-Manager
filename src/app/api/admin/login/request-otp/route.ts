@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         <style>
           body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; }
           .container { max-width: 480px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-          .header { background: linear-gradient(135deg, #10b981 0%, #0f766e 100%); padding: 32px 24px; text-align: center; }
+          .header { background: linear-linear(135deg, #10b981 0%, #0f766e 100%); padding: 32px 24px; text-align: center; }
           .header h1 { color: #ffffff; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
           .content { padding: 40px 32px; text-align: center; color: #334155; }
           .title { font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 16px; }
