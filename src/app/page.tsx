@@ -23,8 +23,8 @@ export default function Home() {
             transition={{ delay: 0.3 }}
             className="text-blue-50 mt-4 text-sm sm:text-lg leading-relaxed"
           >
-            Simplify your shuttering business — manage rentals, inventory, and payments
-            with AI-powered insights and automation.
+            Track inventory in real-time and never lose sight of your equipment again. 
+            Designed to help you rent more and worry less.
           </motion.p>
 
           <motion.div
