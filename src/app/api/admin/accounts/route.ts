@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Admin from "@/models/Admin";
+import AdminOtp from "@/models/AdminOtp"; // Import the OTP model
 import bcrypt from "bcryptjs";
 import { verifyToken } from "@/lib/auth";
 
@@ -8,7 +9,6 @@ export async function PUT(req: Request) {
   await connectDB();
   try {
     // 1. Get token
-    // Use reliable cookie extraction for Next.js App Router
     const cookieHeader = (req as any).cookies || null;
     const token =
       cookieHeader?.get("admin_token")?.value ||
@@ -18,44 +18,55 @@ export async function PUT(req: Request) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Verify
+    // 2. Verify Token
     const decoded = verifyToken(token);
     if (!decoded || typeof decoded === "string") {
       return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 401 });
     }
 
-    const { name, currentPassword, newPassword } = await req.json();
+    // 3. Destructure OTP from request
+    const { name, newPassword, otp } = await req.json();
 
-    // 3. Fetch Admin
+    // 4. Fetch Admin
     const admin = await Admin.findById(decoded.id);
     if (!admin) {
       return NextResponse.json({ ok: false, error: "Admin not found" }, { status: 404 });
     }
 
-    // 4. Update Name
+    // 5. Update Name
     if (name) admin.name = name;
 
-    // 5. Update Password (if requested)
+    // 6. Update Password (OTP Verification Flow)
     if (newPassword) {
-      if (!currentPassword) {
-        return NextResponse.json({ ok: false, error: "Current password required" }, { status: 400 });
-      }
-      
-      // Verify current password
-      const isMatch = await bcrypt.compare(currentPassword, admin.password);
-      if (!isMatch) {
-        return NextResponse.json({ ok: false, error: "Incorrect current password" }, { status: 400 });
+      if (!otp) {
+        return NextResponse.json({ ok: false, error: "OTP is required to change password" }, { status: 400 });
       }
 
-      // Hash new password
+      // Verify OTP
+      const otpDoc = await AdminOtp.findOne({ admin: admin._id, code: otp }).sort({ createdAt: -1 });
+
+      if (!otpDoc) {
+        return NextResponse.json({ ok: false, error: "Invalid OTP" }, { status: 400 });
+      }
+
+      if (otpDoc.expiresAt < new Date()) {
+        await AdminOtp.deleteMany({ admin: admin._id });
+        return NextResponse.json({ ok: false, error: "OTP has expired" }, { status: 400 });
+      }
+
+      // OTP is valid - Delete used OTPs
+      await AdminOtp.deleteMany({ admin: admin._id });
+
+      // Hash and set new password
       const salt = await bcrypt.genSalt(10);
       admin.password = await bcrypt.hash(newPassword, salt);
     }
 
     await admin.save();
 
-    return NextResponse.json({ ok: true, message: "Profile updated" });
+    return NextResponse.json({ ok: true, message: "Profile updated successfully" });
   } catch (err: any) {
+    console.error("Update Error:", err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
