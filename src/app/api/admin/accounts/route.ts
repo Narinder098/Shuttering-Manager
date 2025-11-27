@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Admin from "@/models/Admin";
-import AdminOtp from "@/models/AdminOtp"; // Import the OTP model
+import AdminOtp from "@/models/AdminOtp";
 import bcrypt from "bcryptjs";
 import { verifyToken } from "@/lib/auth";
 

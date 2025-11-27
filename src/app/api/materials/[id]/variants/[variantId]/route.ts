@@ -1,32 +1,33 @@
+// src/app/api/materials/[id]/variants/[variantId]/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Material from "@/models/Materials";
+import { verifyToken } from "@/lib/auth";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string; variantId: string }> }
 ) {
   await connectDB();
-  // 1. Await params
   const { id, variantId } = await params;
 
   try {
+    // --- SECURITY BLOCK ---
+    const cookieHeader = (req as any).cookies || null;
+    const token = cookieHeader?.get("admin_token")?.value || req.headers.get("cookie")?.split(";").find((c: string) => c.trim().startsWith("admin_token="))?.split("=")[1];
+
+    if (!token || !verifyToken(token)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    // ----------------------
+
     const mat = await Material.findById(id);
-    if (!mat)
-      return NextResponse.json(
-        { ok: false, error: "Material not found" },
-        { status: 404 }
-      );
+    if (!mat) return NextResponse.json({ ok: false, error: "Material not found" }, { status: 404 });
 
     const body = await req.json();
 
-    // Use Mongoose .id() method to find subdocument
     const variant = mat.variants.id(variantId);
-    if (!variant)
-      return NextResponse.json(
-        { ok: false, error: "Variant not found" },
-        { status: 404 }
-      );
+    if (!variant) return NextResponse.json({ ok: false, error: "Variant not found" }, { status: 404 });
 
     // Update fields
     variant.label = body.label;
@@ -36,14 +37,8 @@ export async function PUT(
     variant.availableQuantity = body.totalQuantity;
 
     // Recalculate totals
-    mat.totalQuantity = mat.variants.reduce(
-      (a: number, v: { totalQuantity: number }) => a + v.totalQuantity,
-      0
-    );
-    mat.availableQuantity = mat.variants.reduce(
-      (a: number, v: { availableQuantity: number }) => a + v.availableQuantity,
-      0
-    );
+    mat.totalQuantity = mat.variants.reduce((a: number, v: any) => a + v.totalQuantity, 0);
+    mat.availableQuantity = mat.variants.reduce((a: number, v: any) => a + v.availableQuantity, 0);
 
     await mat.save();
 
@@ -58,36 +53,29 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; variantId: string }> }
 ) {
   await connectDB();
-  // 1. Await params
   const { id, variantId } = await params;
 
   try {
+    // --- SECURITY BLOCK ---
+    const cookieHeader = (req as any).cookies || null;
+    const token = cookieHeader?.get("admin_token")?.value || req.headers.get("cookie")?.split(";").find((c: string) => c.trim().startsWith("admin_token="))?.split("=")[1];
+
+    if (!token || !verifyToken(token)) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+    // ----------------------
+
     const mat = await Material.findById(id);
-    if (!mat)
-      return NextResponse.json(
-        { ok: false, error: "Material not found" },
-        { status: 404 }
-      );
+    if (!mat) return NextResponse.json({ ok: false, error: "Material not found" }, { status: 404 });
 
     const variant = mat.variants.id(variantId);
-    if (!variant)
-      return NextResponse.json(
-        { ok: false, error: "Variant not found" },
-        { status: 404 }
-      );
+    if (!variant) return NextResponse.json({ ok: false, error: "Variant not found" }, { status: 404 });
 
-    // Remove subdocument
     variant.deleteOne();
 
     // Recalculate totals
-    mat.totalQuantity = mat.variants.reduce(
-      (a: number, v: { totalQuantity: number }) => a + v.totalQuantity,
-      0
-    );
-    mat.availableQuantity = mat.variants.reduce(
-      (a: number, v: { availableQuantity: number }) => a + v.availableQuantity,
-      0
-    );
+    mat.totalQuantity = mat.variants.reduce((a: number, v: any) => a + v.totalQuantity, 0);
+    mat.availableQuantity = mat.variants.reduce((a: number, v: any) => a + v.availableQuantity, 0);
 
     await mat.save();
 

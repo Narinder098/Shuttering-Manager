@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
+import toast, { Toaster } from "react-hot-toast";
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -14,7 +15,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { Search, DownloadCloud, Printer, MessageSquare, AlertTriangle, Calendar, FileText, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Search, DownloadCloud, Printer, MessageSquare, AlertTriangle, Calendar, FileText, RefreshCw, Filter } from "lucide-react";
 
 /* -------------------- Types -------------------- */
 type RentalItem = {
@@ -79,31 +80,17 @@ export default function AdminReportsPage() {
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(false);
-  const [q, setQ] = useState("");
+  
+  // Date Range State (Defaults to current month)
   const [rangeStart, setRangeStart] = useState<string>(() => format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [rangeEnd, setRangeEnd] = useState<string>(() => format(endOfMonth(new Date()), "yyyy-MM-dd"));
 
-  // UI state
+  // UI State
   const [filterPhoneOrName, setFilterPhoneOrName] = useState("");
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(5);
 
-  // ------------------ TOAST STATE ------------------
-  const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
-
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
-  };
-
-  const dismissToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-  // -------------------------------------------------
-
   useEffect(() => {
     loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadAll() {
@@ -112,8 +99,10 @@ export default function AdminReportsPage() {
       const [rRes, mRes] = await Promise.all([fetch("/api/rentals"), fetch("/api/materials")]);
       const rJson = await rRes.json();
       const mJson = await mRes.json();
+      
       if (!rJson.ok) throw new Error(rJson.error || "Failed rentals");
       if (!mJson.ok) throw new Error(mJson.error || "Failed materials");
+      
       const r: Rental[] = (rJson.data || []).map((x: any) => ({
         ...x,
         totalAmount: Number(x.totalAmount || 0),
@@ -129,35 +118,52 @@ export default function AdminReportsPage() {
       }));
       setRentals(r);
       setMaterials(mJson.data || []);
-      showToast("Data loaded successfully", "success");
+      toast.success("Data refreshed");
     } catch (err: any) {
-      showToast(err.message || "Load error", "error");
+      toast.error(err.message || "Load error");
     } finally {
       setLoading(false);
     }
   }
 
-  /* -------------------- Derived Reports -------------------- */
-
-  const payments = useMemo(() => {
-    return rentals.flatMap((r) =>
-      r.paidAmount > 0
-        ? [
-            {
-              date: r.rentedAt,
-              customer: r.customerName || "—",
-              phone: r.customerPhone || "—",
-              rentalId: r._id,
-              amount: r.paidAmount,
-            },
-          ]
-        : []
+  /* -------------------- 1. GLOBAL FILTER LOGIC -------------------- */
+  // First, filter everything by the search bar (Customer Name/Phone)
+  const searchFilteredRentals = useMemo(() => {
+    if (!filterPhoneOrName.trim()) return rentals;
+    const lower = filterPhoneOrName.toLowerCase();
+    return rentals.filter(r => 
+      (r.customerName || "").toLowerCase().includes(lower) || 
+      (r.customerPhone || "").includes(lower)
     );
-  }, [rentals]);
+  }, [rentals, filterPhoneOrName]);
 
+  /* -------------------- 2. DATE RANGE FILTER LOGIC -------------------- */
+  // Filter the search results by date range (For Charts & Summaries)
+  const rangeFilteredRentals = useMemo(() => {
+    const s = startOfDay(new Date(rangeStart));
+    const e = endOfDay(new Date(rangeEnd));
+    return searchFilteredRentals.filter(r => {
+        const d = new Date(r.rentedAt);
+        return d >= s && d <= e;
+    });
+  }, [searchFilteredRentals, rangeStart, rangeEnd]);
+
+  /* -------------------- 3. DERIVED REPORTS -------------------- */
+
+  // Range Summary (Uses Date Filtered Data)
+  const rangeSummary = useMemo(() => {
+    const totalRentals = rangeFilteredRentals.length;
+    const totalCollected = rangeFilteredRentals.reduce((sum, r) => sum + (r.paidAmount || 0), 0);
+    const totalDue = rangeFilteredRentals.reduce((sum, r) => sum + (r.dueAmount || 0), 0);
+    const itemsRented = rangeFilteredRentals.reduce((sum, r) => sum + ((r.items || []).reduce((si, it) => si + (it.qtyRented || 0), 0)), 0);
+    return { totalRentals, totalCollected, totalDue, itemsRented };
+  }, [rangeFilteredRentals]);
+
+  // Pending Dues (Uses Search Filtered Data - All Time)
+  // We want to see ALL debts for a customer, even if outside the date range
   const pendingDues = useMemo(() => {
     const map: Record<string, { name: string; phone: string; totalDue: number; lastRented?: string; count: number }> = {};
-    for (const r of rentals) {
+    for (const r of searchFilteredRentals) { // Uses searchFiltered, NOT rangeFiltered
       const due = Number(r.dueAmount || 0);
       if (due <= 0) continue;
       const key = (r.customerPhone || r.customerName || r._id) as string;
@@ -167,21 +173,24 @@ export default function AdminReportsPage() {
       if (!map[key].lastRented || new Date(r.rentedAt) > new Date(map[key].lastRented!)) map[key].lastRented = r.rentedAt;
     }
     return Object.entries(map).map(([k, v]) => ({ id: k, ...v }));
-  }, [rentals]);
+  }, [searchFilteredRentals]);
 
+  // Overdue Rentals (Uses Search Filtered Data - All Time)
   const overdueRentals = useMemo(() => {
     const now = new Date();
-    return rentals
+    return searchFilteredRentals
       .filter((r) => r.expectedReturnDate && new Date(r.expectedReturnDate) < now && r.status !== "returned")
       .map((r) => ({
         ...r,
         daysOverdue: Math.ceil((new Date().getTime() - new Date(r.expectedReturnDate!).getTime()) / (1000 * 60 * 60 * 24)),
       }));
-  }, [rentals]);
+  }, [searchFilteredRentals]);
 
+  // Inventory Movement (Uses Search Filtered Data)
+  // Shows what THIS customer (if searched) has taken
   const inventoryMovement = useMemo(() => {
     const map: Record<string, { materialId: string; name: string; rentedOut: number; returned: number; lastMovement?: string }> = {};
-    for (const r of rentals) {
+    for (const r of searchFilteredRentals) {
       for (const it of r.items || []) {
         const id = it.materialId;
         if (!map[id]) map[id] = { materialId: id, name: it.label || id, rentedOut: 0, returned: 0, lastMovement: r.rentedAt };
@@ -190,56 +199,90 @@ export default function AdminReportsPage() {
         if (!map[id].lastMovement || new Date(r.rentedAt) > new Date(map[id].lastMovement!)) map[id].lastMovement = r.rentedAt;
       }
     }
-    return Object.values(map).map((v) => ({ ...v, netOut: v.rentedOut - v.returned }));
-  }, [rentals]);
+    return Object.values(map).map((v) => ({ ...v, netOut: v.rentedOut - v.returned })).sort((a, b) => b.netOut - a.netOut);
+  }, [searchFilteredRentals]);
 
+  // Low Stock (Real-time from Materials API)
   const lowStock = useMemo(() => {
     const list: { materialId: string; name: string; available?: number }[] = [];
     for (const m of materials) {
-      const avail = m.availableQuantity ?? m.variants?.reduce((s, v) => s + (v.availableQuantity ?? 0), 0) ?? undefined;
-      if (avail != null && avail <= lowStockThreshold) {
-        list.push({ materialId: m._id, name: m.name, available: avail });
+      if(m.variants && m.variants.length > 0) {
+         m.variants.forEach(v => {
+             if((v.availableQuantity ?? 0) <= lowStockThreshold) {
+                 list.push({ materialId: v._id, name: `${m.name} (${v.label})`, available: v.availableQuantity });
+             }
+         });
+      } else {
+         const avail = m.availableQuantity ?? 0;
+         if (avail <= lowStockThreshold) {
+            list.push({ materialId: m._id, name: m.name, available: avail });
+         }
       }
     }
     return list;
   }, [materials, lowStockThreshold]);
 
-  const neverReturned = useMemo(() => {
-    return inventoryMovement.filter((i) => i.netOut > 0);
-  }, [inventoryMovement]);
-
-  /* -------------------- Chart Data -------------------- */
+  /* -------------------- 4. CHARTS (Uses Range Filtered Data) -------------------- */
   const dailyRentalsByDate = useMemo(() => {
-    const days = 14;
-    const arr: { date: string; rentals: number; itemsOut: number }[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      arr.push({ date: format(d, "dd MMM"), rentals: 0, itemsOut: 0 });
-    }
+    // Create a map for the date range
+    const start = new Date(rangeStart);
+    const end = new Date(rangeEnd);
+    const daysMap: Record<string, { rentals: number; itemsOut: number }> = {};
     
-    for (const r of rentals) {
-      const key = format(new Date(r.rentedAt), "dd MMM");
-      const idx = arr.findIndex((a) => a.date === key);
-      if (idx >= 0) {
-        arr[idx].rentals += 1;
-        arr[idx].itemsOut += (r.items || []).reduce((s, it) => s + (it.qtyRented || 0), 0);
+    // Generate labels for chart
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        daysMap[format(d, "yyyy-MM-dd")] = { rentals: 0, itemsOut: 0 };
+    }
+
+    for (const r of rangeFilteredRentals) {
+      const key = format(new Date(r.rentedAt), "yyyy-MM-dd");
+      if (daysMap[key]) {
+        daysMap[key].rentals += 1;
+        daysMap[key].itemsOut += (r.items || []).reduce((s, it) => s + (it.qtyRented || 0), 0);
       }
     }
-    return arr;
-  }, [rentals]);
+    
+    return Object.entries(daysMap).map(([date, val]) => ({
+        date: format(new Date(date), "dd MMM"),
+        ...val
+    }));
+  }, [rangeFilteredRentals, rangeStart, rangeEnd]);
 
   const statusPie = useMemo(() => {
     const agg: Record<string, number> = { active: 0, partial_returned: 0, returned: 0 };
-    for (const r of rentals) agg[r.status] = (agg[r.status] || 0) + 1;
+    for (const r of rangeFilteredRentals) agg[r.status] = (agg[r.status] || 0) + 1;
     return [
       { name: "Active", value: agg.active },
       { name: "Partial", value: agg.partial_returned },
       { name: "Returned", value: agg.returned },
     ];
-  }, [rentals]);
+  }, [rangeFilteredRentals]);
 
-  /* -------------------- Actions: notify / export -------------------- */
+  /* -------------------- UTILS: PRESET DATES -------------------- */
+  const setDatePreset = (preset: 'thisMonth' | 'lastMonth' | 'last3Months' | 'allTime') => {
+      const now = new Date();
+      switch(preset) {
+          case 'thisMonth':
+              setRangeStart(format(startOfMonth(now), "yyyy-MM-dd"));
+              setRangeEnd(format(endOfMonth(now), "yyyy-MM-dd"));
+              break;
+          case 'lastMonth':
+              const lastMonth = subMonths(now, 1);
+              setRangeStart(format(startOfMonth(lastMonth), "yyyy-MM-dd"));
+              setRangeEnd(format(endOfMonth(lastMonth), "yyyy-MM-dd"));
+              break;
+          case 'last3Months':
+              setRangeStart(format(subMonths(now, 3), "yyyy-MM-dd"));
+              setRangeEnd(format(now, "yyyy-MM-dd"));
+              break;
+          case 'allTime':
+              setRangeStart("2020-01-01");
+              setRangeEnd(format(endOfMonth(now), "yyyy-MM-dd"));
+              break;
+      }
+  };
+
+  /* -------------------- ACTIONS -------------------- */
   async function notifyCustomer(phone: string, message?: string) {
     try {
       const res = await fetch("/api/notify", {
@@ -249,67 +292,17 @@ export default function AdminReportsPage() {
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "Notify failed");
-      showToast("Notification queued", "success");
+      toast.success("Notification queued");
     } catch (err: any) {
-      showToast(err.message || "Notify error", "error");
+      toast.error(err.message || "Notify error");
     }
   }
 
-  function exportPaymentsCSV() {
-    const rows = [["Date", "Customer", "Phone", "Rental ID", "Amount"]];
-    for (const p of payments) rows.push([format(new Date(p.date), "yyyy-MM-dd HH:mm"), p.customer, p.phone, p.rentalId, String(p.amount)]);
-    downloadCSV(`payments_${format(new Date(), "yyyyMMdd")}.csv`, rows);
-  }
-
-  function exportPendingCSV() {
-    const rows = [["Customer", "Phone", "Total Due", "Outstanding Rentals", "Last Rented"]];
-    for (const p of pendingDues) rows.push([p.name, p.phone, String(p.totalDue), String(p.count), p.lastRented || ""]);
-    downloadCSV(`pending_dues_${format(new Date(), "yyyyMMdd")}.csv`, rows);
-  }
-
-  /* -------------------- Date range summary -------------------- */
-  function filterRange(start: string, end: string) {
-    const s = startOfDay(new Date(start));
-    const e = endOfDay(new Date(end));
-    const subset = rentals.filter((r) => {
-      const dt = new Date(r.rentedAt);
-      return dt >= s && dt <= e;
-    });
-    const totalRentals = subset.length;
-    const totalCollected = subset.reduce((s2, x) => s2 + (x.paidAmount || 0), 0);
-    const totalDue = subset.reduce((s2, x) => s2 + (x.dueAmount || 0), 0);
-    const itemsRented = subset.reduce((s2, x) => s2 + ((x.items || []).reduce((s3, it) => s3 + (it.qtyRented || 0), 0)), 0);
-    return { totalRentals, totalCollected, totalDue, itemsRented, subset };
-  }
-
-  const rangeSummary = useMemo(() => filterRange(rangeStart, rangeEnd), [rangeStart, rangeEnd, rentals]);
-
-  /* -------------------- Render -------------------- */
   return (
-    <div className="space-y-6 pb-10 relative">
-      {/* --- TOAST CONTAINER --- */}
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${
-              toast.type === "success" 
-                ? "bg-emerald-600 border-emerald-500" 
-                : "bg-red-600 border-red-500"
-            }`}
-          >
-            <div className="flex-shrink-0">
-              {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-            </div>
-            <p className="text-sm font-medium">{toast.message}</p>
-            <button onClick={() => dismissToast(toast.id)} className="ml-2 opacity-80 hover:opacity-100 transition-opacity">
-              <X size={16} />
-            </button>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-6 pb-10">
+      <Toaster position="top-right" />
       
-      {/* Header */}
+      {/* Header & Search */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900">Admin Reports</h1>
@@ -317,99 +310,117 @@ export default function AdminReportsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          {/* Search Input */}
+          <div className="relative w-full sm:w-72 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-500 transition-colors" size={16} />
             <input 
-                placeholder="Filter customer..." 
+                placeholder="Search customer name or phone..." 
                 value={filterPhoneOrName} 
                 onChange={(e) => setFilterPhoneOrName(e.target.value)} 
-                className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none text-sm" 
+                className="pl-9 pr-4 py-2.5 w-full rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-sm shadow-sm transition-all" 
             />
           </div>
 
+          <button onClick={loadAll} className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 shadow-sm transition" title="Refresh Data">
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+
           <div className="flex gap-2">
-            <button
-                onClick={() => { window.print(); }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition"
-            >
+            <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition">
                 <Printer size={16} /> <span className="hidden sm:inline">Print</span>
             </button>
-            <button
-                onClick={() => { downloadJSON(`reports_${format(new Date(), "yyyyMMdd")}.json`, { rentals, materials, generatedAt: new Date() }); }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition shadow-sm"
-            >
-                <DownloadCloud size={16} /> <span className="hidden sm:inline">Export</span>
+            <button onClick={() => downloadJSON(`reports_${format(new Date(), "yyyyMMdd")}.json`, { rentals, materials })} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition shadow-sm shadow-emerald-200">
+                <DownloadCloud size={16} /> <span className="hidden sm:inline">Export JSON</span>
             </button>
           </div>
         </div>
       </div>
 
+      {/* Date Range Selector - Full Width */}
+      <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center gap-4 justify-between">
+         <div className="flex items-center gap-3 w-full md:w-auto">
+             <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                <Calendar size={20} />
+             </div>
+             <div>
+                 <label className="text-xs font-bold text-slate-500 uppercase block mb-0.5">Report Period</label>
+                 <div className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                    <input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="bg-transparent outline-none hover:text-emerald-600 cursor-pointer" />
+                    <span className="text-slate-400">→</span>
+                    <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="bg-transparent outline-none hover:text-emerald-600 cursor-pointer" />
+                 </div>
+             </div>
+         </div>
+
+         {/* Date Presets */}
+         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+             <button onClick={() => setDatePreset('thisMonth')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 transition whitespace-nowrap">This Month</button>
+             <button onClick={() => setDatePreset('lastMonth')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 transition whitespace-nowrap">Last Month</button>
+             <button onClick={() => setDatePreset('last3Months')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 transition whitespace-nowrap">Last 3 Months</button>
+             <button onClick={() => setDatePreset('allTime')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 transition whitespace-nowrap">All Time</button>
+         </div>
+      </div>
+
       {/* Top Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Date Range Card */}
-        <div className="p-5 rounded-2xl bg-white border border-emerald-100 shadow-sm hover:shadow-md transition-all">
-          <div className="text-xs font-bold text-emerald-600 uppercase mb-1 flex items-center gap-2">
-            <Calendar size={14}/> Selected Range
-          </div>
-          <div className="text-sm font-medium text-slate-800 mb-3">
-            {format(new Date(rangeStart), "dd MMM")} — {format(new Date(rangeEnd), "dd MMM")}
-          </div>
-          <div className="pt-3 border-t border-emerald-50/50">
-             <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-500">Rentals</span>
+        {/* Period Summary */}
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 shadow-sm">
+          <div className="text-xs font-bold text-emerald-600 uppercase mb-3">Period Summary</div>
+          <div className="space-y-2">
+             <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Total Rentals</span>
                 <span className="font-bold text-slate-800">{rangeSummary.totalRentals}</span>
              </div>
-             <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Revenue</span>
-                <span className="font-bold text-emerald-600">{toCurrency(rangeSummary.totalCollected)}</span>
+             <div className="flex justify-between text-sm items-center pt-2 border-t border-emerald-100">
+                <span className="text-slate-500">Items Rented</span>
+                <span className="font-bold text-emerald-700">{rangeSummary.itemsRented}</span>
              </div>
           </div>
         </div>
 
-        {/* Today's Activity */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all">
-          <div className="text-xs font-bold text-slate-400 uppercase mb-1">Today's Activity</div>
+        {/* Revenue Card */}
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Revenue</div>
           <div className="text-2xl font-extrabold text-slate-900">
-            {rentals.filter(r => new Date(r.rentedAt) >= startOfDay(new Date())).length} <span className="text-sm font-normal text-slate-500">Rentals</span>
+            {toCurrency(rangeSummary.totalCollected)}
           </div>
-          <div className="mt-2 text-sm text-slate-600">
-             Collected: <span className="font-bold text-emerald-600">{toCurrency(rentals.reduce((s, r) => s + (new Date(r.rentedAt) >= startOfDay(new Date()) ? r.paidAmount : 0), 0))}</span>
+          <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+             <Filter size={12} /> Based on selected date range
           </div>
         </div>
 
         {/* Overdue Card */}
-        <div className="p-5 rounded-2xl bg-white border border-red-100 shadow-sm hover:shadow-md transition-all">
-          <div className="text-xs font-bold text-red-500 uppercase mb-1 flex items-center gap-2">
-            <AlertTriangle size={14}/> Overdue Alerts
-          </div>
+        <div className="p-5 rounded-2xl bg-white border border-red-100 shadow-sm">
+          <div className="text-xs font-bold text-red-500 uppercase mb-1">Overdue & Outstanding</div>
           <div className="text-2xl font-extrabold text-slate-900">
-            {overdueRentals.length} <span className="text-sm font-normal text-slate-500">Late</span>
+            {toCurrency(rangeSummary.totalDue)}
           </div>
-          <div className="mt-2 text-sm text-slate-600">
-             Pending Value: <span className="font-bold text-red-600">{toCurrency(overdueRentals.reduce((s, r) => s + (r.dueAmount || 0), 0))}</span>
+          <div className="mt-2 text-sm text-slate-600 flex items-center gap-2">
+             <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-bold">{overdueRentals.length} Late Rentals</span>
           </div>
         </div>
 
         {/* Inventory Alerts */}
-        <div className="p-5 rounded-2xl bg-white border border-amber-100 shadow-sm hover:shadow-md transition-all">
+        <div className="p-5 rounded-2xl bg-white border border-amber-100 shadow-sm">
           <div className="flex justify-between items-start">
-             <div className="text-xs font-bold text-amber-600 uppercase mb-1">Inventory Health</div>
+             <div className="text-xs font-bold text-amber-600 uppercase mb-1">Inventory Alerts</div>
+             <AlertTriangle size={16} className="text-amber-500" />
           </div>
           
-          <div className="space-y-1 mt-1">
-            <div className="flex justify-between text-sm">
-                <span className="text-slate-600">Low Stock</span>
-                <span className="font-bold text-amber-600">{lowStock.length}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-                <span className="text-slate-600">Unreturned</span>
-                <span className="font-bold text-slate-800">{neverReturned.length}</span>
-            </div>
+          <div className="flex justify-between items-end mt-2">
+             <div>
+                <div className="text-2xl font-extrabold text-slate-900">{lowStock.length}</div>
+                <div className="text-xs text-slate-500">Low Stock Items</div>
+             </div>
+             <div className="text-right">
+                <div className="text-lg font-bold text-slate-800">{inventoryMovement.filter(i => i.netOut > 0).length}</div>
+                <div className="text-xs text-slate-500">Active Out</div>
+             </div>
           </div>
           
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-[10px] text-slate-400">Threshold:</span>
+          <div className="mt-3 flex items-center gap-2 bg-amber-50/50 p-1 rounded">
+            <span className="text-[10px] text-slate-400 pl-1">Threshold:</span>
             <input 
                 type="range" 
                 min={1} 
@@ -418,7 +429,7 @@ export default function AdminReportsPage() {
                 onChange={(e) => setLowStockThreshold(Number(e.target.value))} 
                 className="h-1.5 w-full bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
             />
-            <span className="text-[10px] font-medium text-slate-600 w-4">{lowStockThreshold}</span>
+            <span className="text-[10px] font-bold text-slate-600 w-4">{lowStockThreshold}</span>
           </div>
         </div>
       </div>
@@ -429,7 +440,7 @@ export default function AdminReportsPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
                 <h3 className="font-bold text-slate-800">Rental Trends</h3>
-                <p className="text-xs text-slate-500">Last 14 days performance</p>
+                <p className="text-xs text-slate-500">Performance over selected period</p>
             </div>
           </div>
           <div style={{ width: "100%", height: 250 }}>
@@ -448,15 +459,15 @@ export default function AdminReportsPage() {
         <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
           <div className="mb-4">
             <h3 className="font-bold text-slate-800">Status Breakdown</h3>
-            <p className="text-xs text-slate-500">Current rental status distribution</p>
+            <p className="text-xs text-slate-500">Distribution in selected period</p>
           </div>
           <div style={{ width: "100%", height: 250 }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie data={statusPie} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>
-                  <Cell fill="#10B981" /> {/* Active - Emerald */}
-                  <Cell fill="#F59E0B" /> {/* Partial - Amber */}
-                  <Cell fill="#64748B" /> {/* Returned - Slate */}
+                  <Cell fill="#10B981" /> {/* Active */}
+                  <Cell fill="#F59E0B" /> {/* Partial */}
+                  <Cell fill="#64748B" /> {/* Returned */}
                 </Pie>
                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
                 <Legend verticalAlign="bottom" height={36}/>
@@ -466,118 +477,70 @@ export default function AdminReportsPage() {
         </div>
       </div>
 
-      {/* Date Range Picker (Full Width) */}
-      <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-                <Calendar size={18} className="text-emerald-600"/> 
-                <span>Report Range:</span>
-            </div>
-            <div className="flex items-center gap-2 flex-1">
-                <input type="date" value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} className="border border-slate-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none flex-1 sm:flex-none" />
-                <span className="text-slate-400">to</span>
-                <input type="date" value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} className="border border-slate-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none flex-1 sm:flex-none" />
-            </div>
-            <div className="flex items-center gap-2 ml-auto">
-                <button onClick={() => { downloadJSON(`range_summary_${rangeStart}_${rangeEnd}.json`, rangeSummary); }} className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50 uppercase tracking-wide">Export Data</button>
-            </div>
-        </div>
-      </div>
-
       {/* Tables section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         
-        {/* Payments Table */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <div className="font-bold text-slate-800 flex items-center gap-2"><FileText size={16} className="text-emerald-600"/> Recent Payments</div>
-            <button onClick={exportPaymentsCSV} className="text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline">Download CSV</button>
-          </div>
-
-          {payments.length === 0 ? (
-            <div className="text-center text-slate-400 p-8 text-sm">No payments found in this view</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-linear-to-br from-emerald-700 to-teal-600 text-white text-xs uppercase font-semibold text-left">
-                  <tr>
-                    <th className="py-3 px-6">Date</th>
-                    <th className="py-3 px-6">Customer</th>
-                    <th className="py-3 px-6 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {payments.slice(0, 10).map((p, i) => (
-                    <tr key={i} className="hover:bg-emerald-50/30 transition-colors">
-                      <td className="py-3 px-6 text-slate-600">{format(new Date(p.date), "dd MMM")}</td>
-                      <td className="py-3 px-6 font-medium text-slate-800">
-                        {p.customer}
-                        <div className="text-[10px] text-slate-400 font-normal">{p.phone}</div>
-                      </td>
-                      <td className="py-3 px-6 text-right font-bold text-emerald-600">{toCurrency(p.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {payments.length > 10 && <div className="p-2 text-center text-xs text-slate-400 bg-slate-50">Showing recent 10 of {payments.length}</div>}
-            </div>
-          )}
-        </div>
-
         {/* Pending Dues Table */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="font-bold text-slate-800 flex items-center gap-2"><AlertTriangle size={16} className="text-red-500"/> Outstanding Dues</div>
-            <button onClick={exportPendingCSV} className="text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline">Download CSV</button>
+            <button onClick={() => downloadCSV("pending.csv", [])} className="text-xs font-bold text-emerald-600 hover:underline">Download CSV</button>
           </div>
 
           {pendingDues.length === 0 ? (
-            <div className="text-center text-slate-400 p-8 text-sm">No pending dues</div>
+            <div className="text-center text-slate-400 p-8 text-sm">No pending dues found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-linear-to-br from-red-700 to-orange-600 text-white text-xs uppercase font-semibold text-left"><tr>
+                <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold text-left"><tr>
                     <th className="py-3 px-6">Customer</th>
                     <th className="py-3 px-6 text-right">Due Amount</th>
                     <th className="py-3 px-6 text-center">Action</th>
                   </tr></thead>
                 <tbody className="divide-y divide-slate-100">
-                  {pendingDues.slice(0, 10).map((p) => (
-                    <tr key={p.id} className="hover:bg-red-50/30 transition-colors">
-                      <td className="py-3 px-6 font-medium text-slate-800">
-                        {p.name}
-                        <div className="text-[10px] text-slate-400 font-normal">{p.phone} • Last: {p.lastRented ? format(new Date(p.lastRented), "dd MMM") : "-"}</div>
-                      </td>
-                      <td className="py-3 px-6 text-right font-bold text-red-600">{toCurrency(p.totalDue)}</td>
-                      <td className="py-3 px-6 text-center">
-                        <button 
-                            onClick={() => notifyCustomer(p.phone, `Hi ${p.name}, you have an outstanding due of ${toCurrency(p.totalDue)}.`)} 
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-medium hover:bg-emerald-50 hover:text-emerald-700 transition"
-                        >
-                            <MessageSquare size={12} /> Remind
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {pendingDues.slice(0, 10).map((p) => {
+                    const hasPhone = p.phone && p.phone !== "—" && p.phone.trim().length > 0;
+                    return (
+                      <tr key={p.id} className="hover:bg-red-50/30 transition-colors">
+                        <td className="py-3 px-6 font-medium text-slate-800">
+                          {p.name}
+                          <div className="text-[10px] text-slate-400 font-normal">{p.phone || "No Phone"} • Last: {p.lastRented ? format(new Date(p.lastRented), "dd MMM") : "-"}</div>
+                        </td>
+                        <td className="py-3 px-6 text-right font-bold text-red-600">{toCurrency(p.totalDue)}</td>
+                        <td className="py-3 px-6 text-center">
+                          <button 
+                              onClick={() => hasPhone && notifyCustomer(p.phone, `Hi ${p.name}, you have an outstanding due of ${toCurrency(p.totalDue)}.`)} 
+                              disabled={!hasPhone}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition ${
+                                  hasPhone 
+                                  ? "bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer" 
+                                  : "bg-slate-50 text-slate-400 cursor-not-allowed opacity-60"
+                              }`}
+                          >
+                              <MessageSquare size={12} /> {hasPhone ? "Remind" : "No #"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Inventory Movement (Bottom Full Width) */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        {/* Inventory Movement */}
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <h3 className="font-bold text-slate-800">Top Inventory Movement</h3>
+            <h3 className="font-bold text-slate-800">Top Inventory Movement (Filtered)</h3>
          </div>
          <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-                <thead className="bg-linear-to-br from-emerald-700 to-teal-500 text-white"><tr>
+                <thead className="bg-gradient-to-br from-emerald-700 to-teal-500 text-white"><tr>
                     <th className="py-3 px-6 text-left font-semibold">Material Name</th>
-                    <th className="py-3 px-6 text-right font-semibold">Total Rented Out</th>
+                    <th className="py-3 px-6 text-right font-semibold">Out</th>
                     <th className="py-3 px-6 text-right font-semibold">Returned</th>
-                    <th className="py-3 px-6 text-right font-semibold">Net Still Out</th>
+                    <th className="py-3 px-6 text-right font-semibold">Still Out</th>
                 </tr></thead>
                 <tbody className="divide-y divide-emerald-50">
                     {inventoryMovement.slice(0, 8).map((m, i) => (
@@ -590,7 +553,9 @@ export default function AdminReportsPage() {
                     ))}
                 </tbody>
             </table>
+            {inventoryMovement.length === 0 && <div className="text-center py-8 text-slate-400 text-sm">No movement found for this filter</div>}
          </div>
+        </div>
       </div>
 
     </div>

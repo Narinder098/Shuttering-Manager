@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, KeyRound, Mail, Smartphone, ArrowRight, Loader2, Lock, CheckCircle2, AlertCircle, CheckCircle, X } from "lucide-react";
+import { ShieldCheck, KeyRound, Mail, Smartphone, ArrowRight, Loader2, Lock, CheckCircle, AlertCircle, X, CheckCircle2 } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function AdminLoginPage() {
   const [identifier, setIdentifier] = useState(""); // email or phone
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0); // Timer state
 
   // ------------------ TOAST STATE ------------------
   const [toasts, setToasts] = useState<{ id: number; message: string; type: "success" | "error" }[]>([]);
@@ -32,6 +33,14 @@ export default function AdminLoginPage() {
   };
   // -------------------------------------------------
 
+  // --- Timer Effect ---
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timerId = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timerId);
+    }
+  }, [resendTimer]);
+
   // --- Handlers ---
 
   async function loginWithPassword(e?: React.FormEvent) {
@@ -42,7 +51,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
       const data = await res.json();
       
@@ -53,7 +62,6 @@ export default function AdminLoginPage() {
       }
       
       showToast("Welcome back! Redirecting...", "success");
-      // Force full reload to ensure Middleware picks up the new cookie immediately
       window.location.href = "/admin/dashboard"; 
     } catch {
       showToast("Network connection error", "error");
@@ -63,7 +71,7 @@ export default function AdminLoginPage() {
 
   async function sendOtp(e?: React.FormEvent) {
     if (e) e.preventDefault();
-    if (!identifier) {
+    if (!identifier.trim()) {
       showToast("Please enter your email or phone number", "error");
       return;
     }
@@ -73,7 +81,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login/request-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier }),
+        body: JSON.stringify({ identifier: identifier.trim() }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -81,10 +89,11 @@ export default function AdminLoginPage() {
         setLoading(false);
         return;
       }
+      
       setOtpSent(true);
+      setResendTimer(30); // Start 30s timer
       
       if (data.otpSample) {
-        // For demo purposes only
         showToast(`Code sent! (Dev: ${data.otpSample})`, "success");
       } else {
         showToast("Verification code sent!", "success");
@@ -97,7 +106,7 @@ export default function AdminLoginPage() {
 
   async function verifyOtp(e?: React.FormEvent) {
     if (e) e.preventDefault();
-    if (!identifier || !otp) {
+    if (!identifier.trim() || !otp.trim()) {
       showToast("Please enter the verification code", "error");
       return;
     }
@@ -107,7 +116,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/admin/login/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, code: otp }),
+        body: JSON.stringify({ identifier: identifier.trim(), code: otp.trim() }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -154,7 +163,7 @@ export default function AdminLoginPage() {
 
       {/* Brand / Logo Area */}
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-200 mb-6 transform rotate-3 hover:rotate-0 transition-all duration-300">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-xl shadow-emerald-200 mb-6 transform rotate-3 hover:rotate-0 transition-all duration-300">
           <ShieldCheck size={48} />
         </div>
         <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">SBM Admin</h1>
@@ -163,7 +172,7 @@ export default function AdminLoginPage() {
 
       {/* Login Card */}
       <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl shadow-slate-200/50 border border-white overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-emerald-500 to-teal-500" />
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" />
         
         {/* Tabs */}
         <div className="flex border-b border-slate-100 bg-slate-50/50 p-1.5 m-2 rounded-2xl">
@@ -222,26 +231,12 @@ export default function AdminLoginPage() {
                     required
                   />
                 </div>
-                
-                {/* Forgot Password Link */}
-                <div className="flex justify-end mt-2">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                        setTab("otp");
-                        showToast("Switched to OTP login for recovery", "success");
-                    }}
-                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors focus:outline-none"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-2"
               >
                 {loading ? <Loader2 className="animate-spin" size={20} /> : <>Sign In <ArrowRight size={20} /></>}
               </button>
@@ -277,13 +272,28 @@ export default function AdminLoginPage() {
                 <form onSubmit={verifyOtp} className="space-y-6">
                   <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
                     <p className="text-sm text-emerald-800 font-medium">Code sent to <span className="font-bold">{identifier}</span></p>
-                    <button 
-                      type="button" 
-                      onClick={() => { setOtpSent(false); setOtp(""); }} 
-                      className="text-xs text-emerald-600 hover:text-emerald-800 hover:underline mt-1"
-                    >
-                      Change Address
-                    </button>
+                    
+                    <div className="flex items-center justify-center gap-3 mt-3 border-t border-emerald-100/50 pt-2">
+                        <button 
+                            type="button" 
+                            onClick={() => { setOtpSent(false); setOtp(""); setResendTimer(0); }} 
+                            className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+                        >
+                            Change Address
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        {resendTimer > 0 ? (
+                             <span className="text-xs text-slate-400 font-medium">Resend in {resendTimer}s</span>
+                        ) : (
+                            <button 
+                                type="button" 
+                                onClick={() => sendOtp()}
+                                className="text-xs text-emerald-600 hover:text-emerald-800 font-bold hover:underline"
+                            >
+                                Resend Code
+                            </button>
+                        )}
+                    </div>
                   </div>
 
                   <div>
@@ -305,7 +315,7 @@ export default function AdminLoginPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {loading ? <Loader2 className="animate-spin" size={20} /> : "Verify & Login"}
                   </button>
@@ -316,8 +326,9 @@ export default function AdminLoginPage() {
         </div>
       </div>
 
-      <div className="mt-8 text-center">
-        <p className="text-slate-400 text-sm font-medium">&copy; {new Date().getFullYear()} SBM Shuttering Manager</p>
+      {/* Footer/Copyright */}
+      <div className="mt-8 text-center text-slate-400 text-sm">
+        <p>&copy; {new Date().getFullYear()} SBM Shuttering Manager</p>
       </div>
     </div>
   );
