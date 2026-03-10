@@ -68,7 +68,7 @@ function StatCard({ title, value, subtext, icon: Icon, color, trend }: any) {
       <div className={`absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity ${color.text}`}>
         <Icon size={80} />
       </div>
-      
+
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-2">
           <div className={`p-2 rounded-lg ${color.bg} ${color.text}`}>
@@ -76,11 +76,11 @@ function StatCard({ title, value, subtext, icon: Icon, color, trend }: any) {
           </div>
           <span className="text-sm font-bold text-teal-600 uppercase tracking-wide">{title}</span>
         </div>
-        
+
         <div className="flex items-end gap-2">
           <h3 className="text-3xl font-extrabold text-emerald-900">{value}</h3>
         </div>
-        
+
         {subtext && (
           <div className="flex items-center gap-1 mt-2 text-xs font-medium">
             {trend === "up" ? (
@@ -103,7 +103,7 @@ function StatCard({ title, value, subtext, icon: Icon, color, trend }: any) {
 
 function QuickAction({ href, icon: Icon, label, color }: any) {
   return (
-    <Link 
+    <Link
       href={href}
       className={`flex flex-col items-center justify-center p-4 rounded-xl border border-emerald-100 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 group ${color}`}
     >
@@ -119,7 +119,7 @@ function QuickAction({ href, icon: Icon, label, color }: any) {
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
-  
+
   // Data States
   const [stats, setStats] = useState({
     revenue: 0,
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
       }
 
       processData(rentalsData.data || [], materialsData.data || []);
-      
+
     } catch (error: any) {
       showToast(error.message || "Failed to load dashboard data", "error");
     } finally {
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
     rentals.forEach(r => {
       // Revenue (Total Paid)
       totalRevenue += Number(r.paidAmount || 0);
-      
+
       // Pending Dues
       totalDues += Number(r.dueAmount || 0);
 
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
     for (let i = 6; i >= 0; i--) {
       const date = subDays(new Date(), i);
       const dayStr = format(date, "EEE"); // Mon, Tue...
-      
+
       // Find rentals created on this day and sum their payments
       // Note: In a real app, you'd check a separate Payments table/collection.
       // Here we assume paidAmount correlates to rentedAt for simplicity.
@@ -285,11 +285,10 @@ export default function AdminDashboard() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${
-              toast.type === "success" 
-                ? "bg-emerald-600 border-emerald-500" 
+            className={`pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-xl border text-white transform transition-all duration-300 ease-in-out animate-slide-up ${toast.type === "success"
+                ? "bg-emerald-600 border-emerald-500"
                 : "bg-red-600 border-red-500"
-            }`}
+              }`}
           >
             <div className="flex-shrink-0">
               {toast.type === "success" ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
@@ -301,15 +300,15 @@ export default function AdminDashboard() {
           </div>
         ))}
       </div>
-      
+
       {/* HEADER AREA */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-emerald-900 tracking-tight">Dashboard Overview</h1>
           <p className="text-teal-600 mt-1">Welcome back, here's what's happening with your inventory today.</p>
         </div>
-        
-        <button 
+
+        <button
           onClick={loadDashboardData}
           className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-emerald-200 shadow-sm text-teal-700 hover:text-emerald-900 hover:border-emerald-300 transition-colors"
         >
@@ -319,46 +318,46 @@ export default function AdminDashboard() {
 
       {/* KEY STATS GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Total Revenue" 
-          value={`₹ ${stats.revenue.toLocaleString()}`} 
-          subtext="Total Collected" 
-          trend="up" 
-          icon={IndianRupee} 
-          color={{ bg: "bg-emerald-100", text: "text-emerald-600" }} 
+        <StatCard
+          title="Total Revenue"
+          value={`₹ ${stats.revenue.toLocaleString()}`}
+          subtext="Total Collected"
+          trend="up"
+          icon={IndianRupee}
+          color={{ bg: "bg-emerald-100", text: "text-emerald-600" }}
         />
-        <StatCard 
-          title="Active Rentals" 
-          value={stats.activeRentals} 
-          subtext="Currently ongoing" 
-          trend="neutral" 
-          icon={ShoppingCart} 
-          color={{ bg: "bg-teal-100", text: "text-teal-600" }} 
+        <StatCard
+          title="Active Rentals"
+          value={stats.activeRentals}
+          subtext="Currently ongoing"
+          trend="neutral"
+          icon={ShoppingCart}
+          color={{ bg: "bg-teal-100", text: "text-teal-600" }}
         />
-        <StatCard 
-          title="Pending Dues" 
-          value={`₹ ${stats.pendingDues.toLocaleString()}`} 
-          subtext="Total Outstanding" 
-          trend="down" 
-          icon={Clock} 
-          color={{ bg: "bg-amber-100", text: "text-amber-600" }} 
+        <StatCard
+          title="Pending Dues"
+          value={`₹ ${stats.pendingDues.toLocaleString()}`}
+          subtext="Total Outstanding"
+          trend="down"
+          icon={Clock}
+          color={{ bg: "bg-amber-100", text: "text-amber-600" }}
         />
-        <StatCard 
-          title="Items Out" 
-          value={stats.itemsOut} 
-          subtext="In circulation" 
-          trend="neutral" 
-          icon={Boxes} 
-          color={{ bg: "bg-cyan-100", text: "text-cyan-600" }} 
+        <StatCard
+          title="Items Out"
+          value={stats.itemsOut}
+          subtext="In circulation"
+          trend="neutral"
+          icon={Boxes}
+          color={{ bg: "bg-cyan-100", text: "text-cyan-600" }}
         />
       </div>
 
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* LEFT COL: Charts & Actions */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* Revenue Chart */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-emerald-100">
             <div className="flex items-center justify-between mb-6">
@@ -375,36 +374,39 @@ export default function AdminDashboard() {
                 <AreaChart data={revenueChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#d1fae5" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 12, fill: '#0d9488' }} 
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: '#0d9488' }}
                     dy={10}
                   />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 12, fill: '#0d9488' }} 
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: '#0d9488' }}
                     tickFormatter={(value) => `₹${value}`}
                   />
-                  <Tooltip 
+                  <Tooltip
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
-                    formatter={(value: number) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                    formatter={(value: any) => [
+                      `₹${Number(value).toLocaleString()}`,
+                      "Revenue"
+                    ]}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#10B981" 
-                    strokeWidth={3} 
-                    fillOpacity={1} 
-                    fill="url(#colorRevenue)" 
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#10B981"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
                     activeDot={{ r: 6, strokeWidth: 0 }}
                   />
                 </AreaChart>
@@ -416,10 +418,10 @@ export default function AdminDashboard() {
           <div>
             <h3 className="text-sm font-bold text-teal-700 uppercase tracking-wider mb-3">Quick Actions</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <QuickAction href="/admin/rentals" icon={Plus} label="New Rental" color="hover:border-emerald-200 hover:text-emerald-600" />
-                <QuickAction href="/admin/materials" icon={Package} label="Add Material" color="hover:border-teal-200 hover:text-teal-600" />
-                <QuickAction href="/admin/customers" icon={Users} label="Add Customer" color="hover:border-cyan-200 hover:text-cyan-600" />
-                <QuickAction href="/admin/reports" icon={Calendar} label="View Reports" color="hover:border-amber-200 hover:text-amber-600" />
+              <QuickAction href="/admin/rentals" icon={Plus} label="New Rental" color="hover:border-emerald-200 hover:text-emerald-600" />
+              <QuickAction href="/admin/materials" icon={Package} label="Add Material" color="hover:border-teal-200 hover:text-teal-600" />
+              <QuickAction href="/admin/customers" icon={Users} label="Add Customer" color="hover:border-cyan-200 hover:text-cyan-600" />
+              <QuickAction href="/admin/reports" icon={Calendar} label="View Reports" color="hover:border-amber-200 hover:text-amber-600" />
             </div>
           </div>
 
@@ -427,12 +429,12 @@ export default function AdminDashboard() {
 
         {/* RIGHT COL: Activity & Alerts */}
         <div className="space-y-6">
-          
+
           {/* Recent Activity Feed */}
           <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 overflow-hidden">
             <div className="p-4 border-b border-emerald-100 bg-emerald-50/50 flex justify-between items-center">
               <h2 className="font-bold text-emerald-800 text-sm">Recent Activity</h2>
-              <Link href="/admin/rentals" className="text-xs text-emerald-600 font-medium hover:underline flex items-center">View All <ArrowRight size={12} className="ml-1"/></Link>
+              <Link href="/admin/rentals" className="text-xs text-emerald-600 font-medium hover:underline flex items-center">View All <ArrowRight size={12} className="ml-1" /></Link>
             </div>
             <div className="p-4">
               {recentActivity.length === 0 ? (
@@ -446,10 +448,10 @@ export default function AdminDashboard() {
                       </div>
                       <div className="flex-1">
                         <Link href={`/admin/rentals?id=${item.id}`} className="block p-2 -m-2 rounded-lg hover:bg-emerald-50 transition-colors">
-                            <p className="text-sm font-medium text-teal-800 group-hover:text-emerald-600 transition-colors">
-                                New rental for <span className="font-bold">{item.customerName}</span>
-                            </p>
-                            <span className="text-xs text-teal-400">{item.time}</span>
+                          <p className="text-sm font-medium text-teal-800 group-hover:text-emerald-600 transition-colors">
+                            New rental for <span className="font-bold">{item.customerName}</span>
+                          </p>
+                          <span className="text-xs text-teal-400">{item.time}</span>
                         </Link>
                       </div>
                     </div>
@@ -462,34 +464,33 @@ export default function AdminDashboard() {
           {/* Mini Inventory Health */}
           <div className="bg-linear-to-br from-emerald-900 to-teal-950 rounded-2xl shadow-lg p-6 text-white relative overflow-hidden">
             <div className="relative z-10">
-                <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
-                  Inventory Health 
-                  {lowStockItems.length > 0 && <AlertTriangle size={16} className="text-amber-400"/>}
-                </h3>
-                <p className="text-emerald-200/70 text-sm mb-4">
-                  {lowStockItems.length > 0 
-                    ? `${lowStockItems.length} items are running low.` 
-                    : "All items are well stocked."}
-                </p>
-                
-                <div className="space-y-3">
-                    {lowStockItems.map((item, idx) => (
-                      <div key={idx} className="flex justify-between text-sm items-center">
-                          <span className="text-emerald-50 truncate max-w-[150px]">{item.name}</span>
-                          <span className={`font-bold px-2 py-0.5 rounded text-xs ${
-                            item.severity === 'critical' 
-                              ? 'text-red-400 bg-red-400/10' 
-                              : 'text-amber-400 bg-amber-400/10'
-                          }`}>
-                            {item.severity === 'critical' ? 'Empty' : `Low (${item.count})`}
-                          </span>
-                      </div>
-                    ))}
-                </div>
+              <h3 className="font-bold text-lg mb-1 flex items-center gap-2">
+                Inventory Health
+                {lowStockItems.length > 0 && <AlertTriangle size={16} className="text-amber-400" />}
+              </h3>
+              <p className="text-emerald-200/70 text-sm mb-4">
+                {lowStockItems.length > 0
+                  ? `${lowStockItems.length} items are running low.`
+                  : "All items are well stocked."}
+              </p>
 
-                <Link href="/admin/materials" className="mt-6 block w-full text-center py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/5">
-                    Manage Inventory
-                </Link>
+              <div className="space-y-3">
+                {lowStockItems.map((item, idx) => (
+                  <div key={idx} className="flex justify-between text-sm items-center">
+                    <span className="text-emerald-50 truncate max-w-[150px]">{item.name}</span>
+                    <span className={`font-bold px-2 py-0.5 rounded text-xs ${item.severity === 'critical'
+                        ? 'text-red-400 bg-red-400/10'
+                        : 'text-amber-400 bg-amber-400/10'
+                      }`}>
+                      {item.severity === 'critical' ? 'Empty' : `Low (${item.count})`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <Link href="/admin/materials" className="mt-6 block w-full text-center py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/5">
+                Manage Inventory
+              </Link>
             </div>
             {/* Decoration */}
             <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl"></div>
