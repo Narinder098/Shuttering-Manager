@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
+
 // --- NavItem Component ---
 function NavItem({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) {
   const pathname = usePathname();

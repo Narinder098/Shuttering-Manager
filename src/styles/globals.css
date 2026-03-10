@@ -82,3 +82,21 @@ a:hover {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Hide ugly google translate iframe bar */
+.goog-te-banner-frame { display: none !important; }
+#goog-gt-tt { display: none !important; }
+body { top: 0 !important; }
+
+/* Custom language buttons */
+.lang-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.1);
+  font-size: 12px;
+  transition: 0.2s;
+}
+.lang-btn:hover {
+  background: #14b8a6;
+  color: white;
+}
